@@ -4,10 +4,10 @@ module Solution
   , calculateJobsTotalFlow
   ) where
 
-import Job
-import Machine
-import Operation
-import Assignment
+import Job (Job (arrival))
+import Machine (Machine)
+import Operation (parentOf, Operation (duration))
+import Assignment (Assignment (Assignment, finish))
 
 calculateAssignments :: [Job] -> [(Machine, [Operation])] -> [Assignment]
 calculateAssignments js mos =

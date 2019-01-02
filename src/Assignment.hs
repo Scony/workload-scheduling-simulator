@@ -2,8 +2,8 @@ module Assignment
   ( Assignment(Assignment, finish)
   ) where
 
-import Operation
-import Machine
+import Operation (Operation)
+import Machine (Machine)
 
 data Assignment = Assignment { finish :: Int
                              , operation :: Operation
