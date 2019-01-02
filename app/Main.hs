@@ -3,9 +3,10 @@ module Main where
 import System.Environment
 
 import Input
-import Algorithm
+import OfflineAlgorithms
 import Machine
 import Solution
+import Schedule (calculateSolution)
 
 replace a b s = map (\x -> if x == a then b else x) s
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
@@ -32,14 +33,14 @@ main = do
   putStrLn ""
   putStrLn $ show $ allInOne jobs operations machines
   putStrLn ""
-  putStrLn $ show $ calculateAssignments jobs $ allInOne jobs operations machines
+  putStrLn $ show $ calculateSolution jobs $ allInOne jobs operations machines
   putStrLn ""
-  putStrLn $ show $ calculateJobFlows jobs $ calculateAssignments jobs $ allInOne jobs operations machines
+  putStrLn $ show $ calculateJobFlows jobs $ calculateSolution jobs $ allInOne jobs operations machines
   putStrLn ""
-  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateAssignments jobs $ allInOne jobs operations machines
+  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateSolution jobs $ allInOne jobs operations machines
 
   putStrLn ""
-  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateAssignments jobs $ opt jobs operations machines
+  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateSolution jobs $ opt jobs operations machines
 
   putStrLn ""
-  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateAssignments jobs $ worst jobs operations machines
+  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateSolution jobs $ worst jobs operations machines

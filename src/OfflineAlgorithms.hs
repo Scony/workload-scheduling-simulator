@@ -1,38 +1,38 @@
-module Algorithm
+module OfflineAlgorithms
   ( allInOne
   , opt
   , worst
   ) where
 
-import Data.List (permutations, elemIndex)
+import Data.List (permutations)
 
 import Job (Job)
 import Operation (Operation)
 import Machine (Machine)
-import Utils (slice)
-import Solution (calculateAssignments, calculateJobFlows, calculateJobsTotalFlow)
+import Solution (calculateJobFlows, calculateJobsTotalFlow)
+import Schedule (Schedule, calculateSolution)
 
-allInOne :: [Job] -> [Operation] -> [Machine] -> [(Machine, [Operation])]
+allInOne :: [Job] -> [Operation] -> [Machine] -> Schedule
 allInOne js ops ms = [(ms !! 0, ops)]
 
-opt :: [Job] -> [Operation] -> [Machine] -> [(Machine, [Operation])]
+opt :: [Job] -> [Operation] -> [Machine] -> Schedule
 opt js ops ms = pickWeightedSolution js ops ms minimum
 
-worst :: [Job] -> [Operation] -> [Machine] -> [(Machine, [Operation])]
+worst :: [Job] -> [Operation] -> [Machine] -> Schedule
 worst js ops ms = pickWeightedSolution js ops ms maximum
 
-pickWeightedSolution :: [Job] -> [Operation] -> [Machine] -> ([Int] -> Int) -> [(Machine, [Operation])]
+pickWeightedSolution :: [Job] -> [Operation] -> [Machine] -> ([Int] -> Int) -> Schedule
 pickWeightedSolution js ops ms fun = snd $ (filter ((==bestWeight) . fst) weightedSolutions') !! 0
   where weightedSolutions' = weightedSolutions js ops ms
         bestWeight = fun $ map fst weightedSolutions'
 
-weightedSolutions :: [Job] -> [Operation] -> [Machine] -> [(Int, [(Machine, [Operation])])]
+weightedSolutions :: [Job] -> [Operation] -> [Machine] -> [(Int, Schedule)]
 weightedSolutions js ops ms = map (\x -> (eval x, x)) solutions
   where
     solutions = map (zip ms) $ possibilities ops $ length ms
     eval = calculateJobsTotalFlow
       . calculateJobFlows js
-      . calculateAssignments js
+      . calculateSolution js
 
 possibilities :: [a] -> Int -> [[[a]]]
 possibilities xs subsetsNum = process xs

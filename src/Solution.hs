@@ -1,31 +1,13 @@
 module Solution
-  ( calculateAssignments
+  ( Solution
   , calculateJobFlows
   , calculateJobsTotalFlow
   ) where
 
 import Job (Job (arrival))
-import Machine (Machine)
-import Operation (parentOf, Operation (duration))
-import Assignment (Assignment (Assignment, finish))
+import Assignment (Assignment (finish))
 
-calculateAssignments :: [Job] -> [(Machine, [Operation])] -> [Assignment]
-calculateAssignments js mos =
-  foldl (\a x -> a ++ x) [] $ map (calculateMachineAssignments js) mos
-
-calculateMachineAssignments :: [Job] -> (Machine, [Operation]) -> [Assignment]
-calculateMachineAssignments js mo =
-  let m = fst mo
-      ops = snd mo
-      mkAssignment [] op =
-        let jobArrival = arrival $ parentOf js op
-        in [Assignment (jobArrival + duration op) op m]
-      mkAssignment acc op =
-        let finishOfPrev = finish $ last acc
-            jobArrival = arrival $ parentOf js op
-            beginTime = max finishOfPrev jobArrival
-        in acc ++ [Assignment (beginTime + duration op) op m]
-  in foldl mkAssignment [] ops
+type Solution = [Assignment]
 
 calculateJobFlows :: [Job] -> [Assignment] -> [(Int, Job)]
 calculateJobFlows js as =
