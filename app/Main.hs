@@ -18,7 +18,6 @@ main = do
 
   let machinesNum = read $ args !! 0 :: Int
   let machines = ordinaryMachines machinesNum
-  putStrLn $ show machines
 
   let (jobs, operations) = (parseInstanceV2 . mkLines) stdin
   let jobsNum = length jobs
@@ -28,19 +27,12 @@ main = do
   putStrLn $ "jobs: " ++ show jobsNum
   putStrLn $ "operations: " ++ show operationsNum
 
-  putStrLn ""
-  putStrLn $ show $ jobs
-  putStrLn ""
-  putStrLn $ show $ allInOne jobs operations machines
-  putStrLn ""
-  putStrLn $ show $ calculateSolution jobs $ allInOne jobs operations machines
-  putStrLn ""
-  putStrLn $ show $ calculateJobFlows jobs $ calculateSolution jobs $ allInOne jobs operations machines
-  putStrLn ""
-  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateSolution jobs $ allInOne jobs operations machines
+  putStrLn $ ""
 
-  putStrLn ""
-  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateSolution jobs $ opt jobs operations machines
+  let evaluateSchedule js = calculateJobsTotalFlow
+        . calculateJobFlows js
+        . calculateSolution js
 
-  putStrLn ""
-  putStrLn $ show $ calculateJobsTotalFlow $ calculateJobFlows jobs $ calculateSolution jobs $ worst jobs operations machines
+  putStrLn $ "allInOne: " ++ show (evaluateSchedule jobs $ allInOne jobs operations machines)
+  putStrLn $ "opt: " ++ show (evaluateSchedule jobs $ opt jobs operations machines)
+  putStrLn $ "worst: " ++ show (evaluateSchedule jobs $ worst jobs operations machines)
