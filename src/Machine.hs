@@ -1,5 +1,5 @@
 module Machine
-  ( Machine
+  ( Machine(Machine)
   , ordinaryMachines
   ) where
 

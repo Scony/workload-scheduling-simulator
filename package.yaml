@@ -32,3 +32,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - hamulator
+    - tasty
+    - tasty-hunit

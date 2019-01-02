@@ -1,5 +1,5 @@
 module Operation
-  ( Operation(uuid,duration)
+  ( Operation(Operation, uuid, duration)
   , parentOf
   ) where
 

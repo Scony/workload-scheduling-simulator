@@ -1,5 +1,5 @@
 module Assignment
-  ( Assignment(Assignment, finish)
+  ( Assignment(Assignment, finish, operation)
   ) where
 
 import Operation (Operation)
