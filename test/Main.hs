@@ -4,15 +4,25 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Utils (slice)
-import Solution (calculateJobFlows, calculateJobsTotalFlow)
+import Solution (calculateJobFlows, calculateJobsTotalFlow, costs)
 import Job (Job (Job))
 import Operation (Operation (Operation))
 import Machine (Machine (Machine))
 import Assignment (Assignment (Assignment))
+  
+jobs = [Job 1 0 0, Job 2 0 2]
+operations = [Operation 1 1 0 0 2 0, Operation 2 2 0 0 2 0]
+machine = Machine 1 0
+assignments = [Assignment 2 (operations !! 0) machine, Assignment 4 (operations !! 1) machine]
 
 main :: IO ()
 main = do
-  defaultMain (testGroup "Lib Tests" [dummyTest, sliceTest, sliceTest2, totalFlowTest])
+  defaultMain (testGroup "Lib Tests" [dummyTest
+                                     , sliceTest
+                                     , sliceTest2
+                                     , totalFlowTest
+                                     , costsTest
+                                     ])
 
 dummyTest :: TestTree
 dummyTest = testCase "Testing nothing"
@@ -31,7 +41,9 @@ totalFlowTest = testCase "Test total flow calculation"
   (assertEqual "Should return 4" 4 (result))
   where
     result = calculateJobsTotalFlow $ calculateJobFlows jobs assignments
-    jobs = [Job 1 0 0, Job 2 0 2]
-    operations = [Operation 1 1 0 0 2 0, Operation 2 2 0 0 2 0]
-    machine = Machine 1 0
-    assignments = [Assignment 2 (operations !! 0) machine, Assignment 4 (operations !! 1) machine]
+
+costsTest :: TestTree
+costsTest = testCase "Calculate some costs"
+  (assertEqual "" [(1, jobs !! 0), (1, jobs !! 1)] (costs jobs assignments cost))
+  where
+    cost j _ = (1, j)
