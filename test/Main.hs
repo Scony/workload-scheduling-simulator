@@ -25,6 +25,7 @@ main = do
                                      , mStretchTest
                                      , tStretchTest
                                      , wStretchTest
+                                     , pStretchTest
                                      ])
 
 dummyTest :: TestTree
@@ -72,6 +73,16 @@ tStretchTest = testCase "Calculate t-stretch"
 wStretchTest :: TestTree
 wStretchTest = testCase "Calculate w-stretch"
   (assertEqual "" (6.0/(6.0/2.0)) (wStretch machines' job' assignments'))
+  where
+    job' = Job 1 0 0
+    operations' = [Operation 1 1 0 0 2 0, Operation 1 2 0 0 4 0]
+    machines' = [Machine 1 0, Machine 2 0]
+    assignments' = [Assignment 2 (operations' !! 0) (machines' !! 0)
+                   , Assignment 6 (operations' !! 1) (machines' !! 0)]
+
+pStretchTest :: TestTree
+pStretchTest = testCase "Calculate p-stretch"
+  (assertEqual "" 1.0 (pStretch machines' job' assignments'))
   where
     job' = Job 1 0 0
     operations' = [Operation 1 1 0 0 2 0, Operation 1 2 0 0 4 0]

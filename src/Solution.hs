@@ -5,6 +5,7 @@ module Solution
   , mStretch
   , tStretch
   , wStretch
+  , pStretch
   ) where
 
 import Job (Job (arrival, uuid))
@@ -49,3 +50,5 @@ wStretch ms j as = fromIntegral flow' / distributedWeight
     flow' = flow j as
     distributedWeight = (fromIntegral $ sum operationDurations) / (fromIntegral $ length ms)
     operationDurations = [(duration . operation) a | a <- as, uuid j == (parent . operation) a]
+
+pStretch _ _ _ = 1.0
