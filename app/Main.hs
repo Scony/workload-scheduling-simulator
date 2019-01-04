@@ -33,5 +33,5 @@ main = do
         . calculateSolution js
 
   putStrLn $ "allInOne: " ++ show (evaluateSchedule jobs $ allInOne jobs operations machines)
-  putStrLn $ "opt: " ++ show (evaluateSchedule jobs $ opt jobs operations machines)
-  putStrLn $ "worst: " ++ show (evaluateSchedule jobs $ worst jobs operations machines)
+  putStrLn $ "opt: " ++ show (evaluateSchedule jobs $ opt totalFlow jobs operations machines)
+  putStrLn $ "worst: " ++ show (evaluateSchedule jobs $ worst totalFlow jobs operations machines)

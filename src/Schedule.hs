@@ -7,9 +7,9 @@ import Job (Job (arrival))
 import Machine (Machine)
 import Operation (parentOf, Operation (duration))
 import Assignment (Assignment (Assignment, finish))
-import Solution (Solution)
 
 type Schedule = [(Machine, [Operation])]
+type Solution = [Assignment]
 
 calculateSolution :: [Job] -> Schedule -> Solution
 calculateSolution js s =
