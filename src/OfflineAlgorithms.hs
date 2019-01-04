@@ -9,7 +9,7 @@ import Data.List (permutations)
 import Job (Job)
 import Operation (Operation)
 import Machine (Machine)
-import Solution (calculateJobFlows, calculateJobsTotalFlow)
+import Solution (totalFlow)
 import Schedule (Schedule, calculateSolution)
 
 allInOne :: [Job] -> [Operation] -> [Machine] -> Schedule
@@ -30,8 +30,7 @@ weightedSolutions :: [Job] -> [Operation] -> [Machine] -> [(Int, Schedule)]
 weightedSolutions js ops ms = map (\x -> (eval x, x)) solutions
   where
     solutions = map (zip ms) $ possibilities ops $ length ms
-    eval = calculateJobsTotalFlow
-      . calculateJobFlows js
+    eval = totalFlow js
       . calculateSolution js
 
 possibilities :: [a] -> Int -> [[[a]]]

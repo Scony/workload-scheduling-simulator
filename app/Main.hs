@@ -5,7 +5,7 @@ import System.Environment
 import Input
 import OfflineAlgorithms
 import Machine
-import Solution
+import Solution (totalFlow)
 import Schedule (calculateSolution)
 
 replace a b s = map (\x -> if x == a then b else x) s
@@ -29,8 +29,7 @@ main = do
 
   putStrLn $ ""
 
-  let evaluateSchedule js = calculateJobsTotalFlow
-        . calculateJobFlows js
+  let evaluateSchedule js = totalFlow js
         . calculateSolution js
 
   putStrLn $ "allInOne: " ++ show (evaluateSchedule jobs $ allInOne jobs operations machines)

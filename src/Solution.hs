@@ -1,33 +1,51 @@
 module Solution
   ( Solution
-  , calculateJobFlows
-  , calculateJobsTotalFlow
   , costs
+  , totalFlow
+  , mStretch
+  , tStretch
+  , wStretch
   ) where
 
 import Job (Job (arrival, uuid))
 import Assignment (Assignment (finish, operation))
-import Operation (parent)
+import Operation (parent, duration)
+import Machine (Machine)
 
 type Solution = [Assignment]
 
-calculateJobFlows :: [Job] -> [Assignment] -> [(Int, Job)]
-calculateJobFlows js as = costs js as flow
+totalFlow :: [Job] -> [Assignment] -> Int
+totalFlow js as = total $ costs js as flow
 
-calculateJobsTotalFlow :: [(Int, Job)] -> Int
-calculateJobsTotalFlow jfs = sum $ map fst jfs
-
--- totalFlow :: (Num a) => [Job] -> [Assignment] -> a
--- totalFlow js as = total $ costs js as flow
-
-costs :: [Job] -> [Assignment] -> (Job -> [Assignment] -> (a, Job)) -> [(a, Job)]
-costs js as cost = map (\x -> cost x as) js
+costs :: [Job] -> [Assignment] -> (Job -> [Assignment] -> a) -> [(a, Job)]
+costs js as cost = map (\x -> (cost x as, x)) js
 
 total :: (Num a) => [(a, Job)] -> a
 total cjs = sum $ map fst cjs
 
-flow :: Job -> [Assignment] -> (Int, Job)
-flow j as = (jEnd - jBegin, j)
+flow :: Job -> [Assignment] -> Int
+flow j as = jEnd - jBegin
   where
     jEnd = maximum [finish a | a <- as, uuid j == (parent . operation) a]
     jBegin = arrival j
+
+mStretch :: Job -> [Assignment] -> Float
+mStretch j as = fromIntegral flow' / fromIntegral maxP
+  where
+    flow' = flow j as
+    maxP = maximum operationDurations
+    operationDurations = [(duration . operation) a | a <- as, uuid j == (parent . operation) a]
+
+tStretch :: Job -> [Assignment] -> Float
+tStretch j as = fromIntegral flow' / fromIntegral totalP
+  where
+    flow' = flow j as
+    totalP = sum operationDurations
+    operationDurations = [(duration . operation) a | a <- as, uuid j == (parent . operation) a]
+
+wStretch :: [Machine] -> Job -> [Assignment] -> Float
+wStretch ms j as = fromIntegral flow' / distributedWeight
+  where
+    flow' = flow j as
+    distributedWeight = (fromIntegral $ sum operationDurations) / (fromIntegral $ length ms)
+    operationDurations = [(duration . operation) a | a <- as, uuid j == (parent . operation) a]
