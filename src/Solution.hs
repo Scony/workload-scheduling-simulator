@@ -51,4 +51,8 @@ wStretch ms j as = fromIntegral flow' / distributedWeight
     distributedWeight = (fromIntegral $ sum operationDurations) / (fromIntegral $ length ms)
     operationDurations = [(duration . operation) a | a <- as, uuid j == (parent . operation) a]
 
-pStretch _ _ _ = 1.0
+pStretch :: [(Int, Job)] -> Job -> [Assignment] -> Float
+pStretch fopts j as = fromIntegral flow' / fromIntegral fopt
+  where
+    flow' = flow j as
+    fopt = fst $ (filter ((==j) . snd) fopts) !! 0
