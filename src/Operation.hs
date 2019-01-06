@@ -19,3 +19,6 @@ data Operation = Operation { parent :: Int
 instance Read Operation where
   readsPrec _ s = [(Operation (fs !! 0) (fs !! 1) (fs !! 2) (fs !! 3) (fs !! 4) (fs !! 5), "")]
     where fs = map read . words $ s
+
+instance Eq Operation where
+  Operation _ a _ _ _ _ == Operation _ b _ _ _ _ = a == b
