@@ -6,7 +6,7 @@ import Data.List (sortBy)
 import Control.Exception (assert)
 
 import Job (Job, uuid, arrival)
-import Operation (Operation, parent)
+import Operation (Operation, parent, duration)
 import Machine (Machine)
 import Assignment (Assignment (Assignment))
 
@@ -15,6 +15,9 @@ type Time = Int
 
 rand :: [Job] -> [Operation] -> [Machine] -> [Assignment]
 rand js ops ms = run rand' js ops ms
+
+rand' :: [Operation] -> Queue
+rand' ops = reverse ops
 
 run :: ([Operation] -> Queue) -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
@@ -60,12 +63,31 @@ assignInTimeFrame' mops [] _ until = (newMops, [], as)
       Just (op', t) -> if t <= until then acc ++ [Assignment t op' m] else acc
       Nothing -> acc
 assignInTimeFrame' mops (op:ops) from until
-  | freeMachineExists = ([], [], [])
-  | freeMachineCanExist = ([], [], [])
+  | freeMachineExists = assignInTimeFrame' (mopsWithFilledOne mops (Just op)) ops from until
+  | freeMachineCanExist = (newMops, newQ, newAs' ++ newAs)
+  | releaseableMachinesExist = (mopsWithFreedOnes', (op:ops), newAs'')
   | otherwise = (mops, (op:ops), [])
   where
-    freeMachineExists = True
-    freeMachineCanExist = True
-
-rand' :: [Operation] -> Queue
-rand' ops = reverse ops
+    freeMachineExists = or $ map isMachineFree mops
+    isMachineFree (m, op') = case op' of
+      Just _ -> False
+      Nothing -> True
+    mopsWithFilledOne mops' Nothing = mops'
+    mopsWithFilledOne ((m, op'):mops') (Just op'') = case op' of
+      Just _ -> (m, op'):(mopsWithFilledOne mops' (Just op''))
+      Nothing -> (m, Just (op'', from + duration op'')):(mopsWithFilledOne mops' Nothing)
+    freeMachineCanExist = or $ map isMachineFreeable mops
+    isMachineFreeable (_, op') = case op' of
+      Just (_, t) -> t < until
+      Nothing -> False
+    (newMops, newQ, newAs) = assignInTimeFrame' mopsWithFreedOnes (op:ops) newFrom until
+    (mopsWithFreedOnes, _, newAs') = assignInTimeFrame' mops [] (-1) newFrom
+    newFrom = minimum $ foldl fetchT [] mops
+    fetchT acc (_, op') = case op' of
+      Just (_, t) -> t:acc
+      Nothing -> acc
+    releaseableMachinesExist = or $ map isMachineReleasable mops
+    isMachineReleasable (_, op') = case op' of
+      Just (_, t) -> t == until
+      Nothing -> False
+    (mopsWithFreedOnes', _, newAs'') = assignInTimeFrame' mops [] (-1) until
