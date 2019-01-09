@@ -1,5 +1,6 @@
 module QueueAlgorithms
   ( assignInTimeFrame
+  , so
   ) where
 
 import Data.List (sortBy)
@@ -12,30 +13,31 @@ import Assignment (Assignment (Assignment))
 
 type Queue = [Operation]
 type Time = Int
+type MachineState = (Machine, Maybe (Operation, Time))
 
-rand :: [Job] -> [Operation] -> [Machine] -> [Assignment]
-rand js ops ms = run rand' js ops ms
+so :: [Job] -> [Operation] -> [Machine] -> [Assignment]
+so js ops ms = run so' js ops ms
 
-rand' :: [Operation] -> Queue
-rand' ops = reverse ops
+so' :: [Operation] -> Queue
+so' ops = reverse ops
 
 run :: ([Operation] -> Queue) -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
-run alg js ops ms = run' (-1) sortedJops emptyMachines []
+run alg js ops ms = run' alg (-1) sortedJops emptyMachines []
   where
     sortedJops = sortBy (\(j1, _) (j2, _) -> compare (arrival j1) (arrival j2)) jops
     jops = map (\j -> (j, [op | op <- ops, uuid j == parent op])) js
     emptyMachines = map (\x -> (x, Nothing)) ms
 
-run' :: Time -> [(Job, [Operation])] -> [(Machine, Maybe (Operation, Time))] -> Queue
+run' :: ([Operation] -> Queue) -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
      -> [Assignment]
-run' t [] mops q = as
+run' _ t [] mops q = as
   where
     (_, _, as) = assignInTimeFrame mops q t maxBound
-run' t jops mops q = as ++ run' newT newJops newMops newQ'
+run' alg t jops mops q = as ++ run' alg newT newJops newMops newQ'
   where
     newJops = filter ((/=newT) . arrival . fst) jops
-    newQ' = rand' opsToProcess  -- TODO: pass fun
+    newQ' = alg opsToProcess
     opsToProcess = newQ ++ newOps
     newOps = concat [ops | (j, ops) <- jops, arrival j == newT]
     (newMops, newQ, as) = assignInTimeFrame mops q t newT

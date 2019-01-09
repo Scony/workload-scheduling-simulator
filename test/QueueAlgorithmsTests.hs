@@ -5,10 +5,11 @@ module QueueAlgorithmsTests
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import QueueAlgorithms (assignInTimeFrame)
+import QueueAlgorithms (assignInTimeFrame, so)
 import Operation
 import Machine
 import Assignment
+import Job
 
 queueAlgorithmsTests :: TestTree
 queueAlgorithmsTests = testGroup "QueueAlgotithms tests" [dummyTest
@@ -17,6 +18,7 @@ queueAlgorithmsTests = testGroup "QueueAlgotithms tests" [dummyTest
                                                          , assignInTimeFrameTest'''
                                                          , assignInTimeFrameTest''''
                                                          , assignInTimeFrameTest'''''
+                                                         , soTest
                                                          ]
 dummyTest :: TestTree
 dummyTest = testCase "Test nothing"
@@ -89,3 +91,22 @@ assignInTimeFrameTest''''' = testCase "Test algorithm working for bigger instanc
     mops' = [(m, Nothing) | m <- machines']
     machines' = [Machine 1 0, Machine 2 0]
     queue' = [Operation 1 1 0 0 2 0, Operation 1 2 0 0 3 0, Operation 1 3 0 0 2 0]
+
+soTest :: TestTree
+soTest = testCase "Test algorithm working"
+  (assertEqual "" expectedAs (so jobs' operations' machines'))
+  where
+    expectedAs = [
+      Assignment 12 (operations' !! 2) (machines' !! 1)
+      , Assignment 15 (operations' !! 0) (machines' !! 0)
+      , Assignment 17 (operations' !! 1) (machines' !! 1)
+      , Assignment 21 (operations' !! 3) (machines' !! 0)
+      ]
+    jobs' = [Job 1 0 0, Job 2 0 10, Job 3 0 20]
+    operations' = [
+      Operation 1 1 0 0 15 0
+      , Operation 2 2 0 0 5 0
+      , Operation 2 3 0 0 2 0
+      , Operation 3 4 0 0 1 0
+      ]
+    machines' = [Machine 1 0, Machine 2 0]

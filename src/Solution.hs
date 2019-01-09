@@ -2,6 +2,7 @@ module Solution
   ( Solution
   , costs
   , totalFlow
+  , averageFlow
   , mStretch
   , tStretch
   , wStretch
@@ -18,11 +19,17 @@ type Solution = [Assignment]
 totalFlow :: [Job] -> [Assignment] -> Int
 totalFlow js as = total $ costs js as flow
 
+averageFlow :: [Job] -> [Assignment] -> Float
+averageFlow js as = average $ costs js as flow
+
 costs :: [Job] -> [Assignment] -> (Job -> [Assignment] -> a) -> [(a, Job)]
 costs js as cost = map (\x -> (cost x as, x)) js
 
 total :: (Num a) => [(a, Job)] -> a
 total cjs = sum $ map fst cjs
+
+-- average :: (Fractional a) => [(a, Job)] -> a
+average cjs = (sum $ map (realToFrac . fst) cjs) / fromIntegral (length cjs)
 
 flow :: Job -> [Assignment] -> Int
 flow j as = jEnd - jBegin

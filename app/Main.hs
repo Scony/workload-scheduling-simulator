@@ -5,8 +5,9 @@ import System.Environment
 import Input
 import OfflineAlgorithms
 import Machine
-import Solution (totalFlow)
+import Solution (totalFlow, averageFlow)
 import Schedule (calculateSolution)
+import QueueAlgorithms (so)
 
 replace a b s = map (\x -> if x == a then b else x) s
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
@@ -16,7 +17,9 @@ main = do
   stdin <- getContents
   args <- getArgs
 
-  let machinesNum = read $ args !! 0 :: Int
+  let algorithm = args !! 0 :: String
+  putStrLn algorithm
+  let machinesNum = read $ args !! 1 :: Int
   let machines = ordinaryMachines machinesNum
 
   let (jobs, operations) = (parseInstanceV2 . mkLines) stdin
@@ -29,9 +32,16 @@ main = do
 
   putStrLn $ ""
 
-  let evaluateSchedule js = totalFlow js
-        . calculateSolution js
+  case algorithm of
+    "allin1"
+      -> putStrLn $ "allIn1: " ++ show (evaluateSchedule jobs $ allInOne jobs operations machines)
+    "opt"
+      -> putStrLn $ "opt: " ++ show (evaluateSchedule jobs $ opt totalFlow jobs operations machines)
+    "worst"
+      -> putStrLn $ "worst: " ++ show (evaluateSchedule jobs $ worst totalFlow jobs operations machines)
+    "so"
+      -> putStrLn $ "so: " ++ show (averageFlow jobs $ so jobs operations machines)
+    _
+      -> putStrLn "choose algorithm!!"
 
-  putStrLn $ "allInOne: " ++ show (evaluateSchedule jobs $ allInOne jobs operations machines)
-  putStrLn $ "opt: " ++ show (evaluateSchedule jobs $ opt totalFlow jobs operations machines)
-  putStrLn $ "worst: " ++ show (evaluateSchedule jobs $ worst totalFlow jobs operations machines)
+evaluateSchedule js = averageFlow js . calculateSolution js
