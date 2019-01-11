@@ -1,13 +1,16 @@
 module Main where
 
 import System.Environment
+import System.IO
+import Data.List (sortBy)
 
 import Input
 import OfflineAlgorithms
 import Machine
-import Solution (totalFlow, averageFlow)
+import Solution (totalFlow, costs, flow)
 import Schedule (calculateSolution)
 import QueueAlgorithms (so)
+import Job (arrival)
 
 replace a b s = map (\x -> if x == a then b else x) s
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
@@ -18,7 +21,6 @@ main = do
   args <- getArgs
 
   let algorithm = args !! 0 :: String
-  putStrLn algorithm
   let machinesNum = read $ args !! 1 :: Int
   let machines = ordinaryMachines machinesNum
 
@@ -26,22 +28,24 @@ main = do
   let jobsNum = length jobs
   let operationsNum = length operations
 
-  putStrLn $ "machines: " ++ show machinesNum
-  putStrLn $ "jobs: " ++ show jobsNum
-  putStrLn $ "operations: " ++ show operationsNum
+  hPutStrLn stderr $ "> machines: " ++ show machinesNum
+  hPutStrLn stderr $ "> jobs: " ++ show jobsNum
+  hPutStrLn stderr $ "> operations: " ++ show operationsNum
+  hPutStrLn stderr $ "> algorithm: " ++ algorithm
 
-  putStrLn $ ""
+  let scheduleAlgorithm alg = costs jobs (calculateSolution jobs $ alg jobs operations machines) flow
+  let queueAlgorithm alg = costs jobs (alg jobs operations machines) flow
+  let cjsInOrder cjs = sortBy (\(_, j1) (_, j2) -> compare (arrival j1) (arrival j2)) cjs
+  let jobFlows cjs = mapM_ (\(c, _) -> putStrLn $ show c) (cjsInOrder cjs)
 
   case algorithm of
     "allin1"
-      -> putStrLn $ "allIn1: " ++ show (evaluateSchedule jobs $ allInOne jobs operations machines)
+      -> jobFlows $ scheduleAlgorithm allInOne
     "opt"
-      -> putStrLn $ "opt: " ++ show (evaluateSchedule jobs $ opt totalFlow jobs operations machines)
+      -> jobFlows $ scheduleAlgorithm (opt totalFlow)
     "worst"
-      -> putStrLn $ "worst: " ++ show (evaluateSchedule jobs $ worst totalFlow jobs operations machines)
+      -> jobFlows $ scheduleAlgorithm (worst totalFlow)
     "so"
-      -> putStrLn $ "so: " ++ show (averageFlow jobs $ so jobs operations machines)
+      -> jobFlows $ queueAlgorithm so
     _
       -> putStrLn "choose algorithm!!"
-
-evaluateSchedule js = averageFlow js . calculateSolution js

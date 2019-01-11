@@ -7,6 +7,7 @@ module Solution
   , tStretch
   , wStretch
   , pStretch
+  , flow
   ) where
 
 import Job (Job (arrival, uuid))
