@@ -2,6 +2,7 @@ module QueueAlgorithms
   ( assignInTimeFrame
   , so
   , sjlo
+  , sjlo'
   , fifo
   ) where
 
