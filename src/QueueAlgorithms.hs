@@ -7,9 +7,8 @@ module QueueAlgorithms
   ) where
 
 import Data.List (sortBy)
+import qualified Data.IntMap.Strict as Map
 import Control.Exception (assert)
-
-import Data.List.Extra (nubOrd)
 
 import Job (Job, uuid, arrival)
 import Operation (Operation, parent, duration)
@@ -36,11 +35,12 @@ fifo' :: [Operation] -> Queue
 fifo' ops = ops
 
 sjlo' :: [Operation] -> Queue
-sjlo' ops = concat $ map snd $ sortBy (\l r -> compare (fst l) (fst r)) jOps -- sj
-  where jOps = map (\j -> (sum $ map duration $ jOps' j, sortBy cmp $ jOps' j)) jobs
-        cmp l r = compare (duration r) (duration l) -- lo
-        jOps' j = [o | o <- ops, j == parent o]
-        jobs = nubOrd $ map parent ops
+sjlo' ops = concat $ map snd $ sortBy jCmp dSortedOps
+  where dSortedOps = map (\(_, ops') -> (sum $ map duration ops', sortBy oCmp ops')) jOps
+        oCmp l r = compare (duration r) (duration l) -- lo
+        jCmp l r = compare (fst l) (fst r)           -- sj
+        jOps = Map.toList
+               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
 
 run :: ([Operation] -> Queue) -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]

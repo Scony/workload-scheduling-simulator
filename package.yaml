@@ -10,6 +10,7 @@ library:
     - -Werror
   dependencies:
     - extra
+    - containers
 
 executables:
   hamulator-exe:
