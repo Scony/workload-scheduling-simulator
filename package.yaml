@@ -49,7 +49,7 @@ benchmarks:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    # - -O0
+    - -O2
     dependencies:
     - hamulator
     - criterion

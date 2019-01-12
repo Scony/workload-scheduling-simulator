@@ -9,7 +9,7 @@ module QueueAlgorithms
 import Data.List (sortBy)
 import Control.Exception (assert)
 
-import Data.List.Extra (nubOrdBy)
+import Data.List.Extra (nubOrd)
 
 import Job (Job, uuid, arrival)
 import Operation (Operation, parent, duration)
@@ -36,15 +36,11 @@ fifo' :: [Operation] -> Queue
 fifo' ops = ops
 
 sjlo' :: [Operation] -> Queue
-sjlo' ops = sortBy cmp ops
-  where cmp l r
-          | (parent l) == (parent r) = compare (duration r) (duration l) -- lo
-          | otherwise = compare (duration' $ parent l) (duration' $ parent r) -- sj
-        duration' j = [d | (j', d) <- jobDurations, j' == j] !! 0
-        jobDurations = map (\j -> (j, jobDuration j)) jobs
-        jobDuration j = sum [duration o | o <- ops, j == parent o]
-        jobs = nubOrdBy (\l r -> compare l r) jobs'
-        jobs' = map parent ops
+sjlo' ops = concat $ map snd $ sortBy (\l r -> compare (fst l) (fst r)) jOps -- sj
+  where jOps = map (\j -> (sum $ map duration $ jOps' j, sortBy cmp $ jOps' j)) jobs
+        cmp l r = compare (duration r) (duration l) -- lo
+        jOps' j = [o | o <- ops, j == parent o]
+        jobs = nubOrd $ map parent ops
 
 run :: ([Operation] -> Queue) -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
