@@ -9,7 +9,7 @@ import OfflineAlgorithms
 import Machine
 import Solution (totalFlow, costs, flow)
 import Schedule (calculateSolution)
-import QueueAlgorithms (so)
+import QueueAlgorithms (so, fifo, sjlo)
 import Job (arrival)
 import Validator (validateSolution)
 
@@ -52,5 +52,9 @@ main = do
       -> jobFlows $ scheduleAlgorithm (worst totalFlow)
     "so"
       -> jobFlows $ queueAlgorithm so
+    "fifo"
+      -> jobFlows $ queueAlgorithm fifo
+    "sjlo"
+      -> jobFlows $ queueAlgorithm sjlo
     _
       -> putStrLn "choose algorithm!!"

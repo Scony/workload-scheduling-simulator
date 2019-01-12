@@ -1,9 +1,12 @@
 module QueueAlgorithms
   ( assignInTimeFrame
   , so
+  , sjlo
+  , fifo
   ) where
 
 import Data.List (sortBy)
+import Data.List.Extra (nubOrdBy)
 import Control.Exception (assert)
 
 import Job (Job, uuid, arrival)
@@ -15,11 +18,31 @@ type Queue = [Operation]
 type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
 
+fifo :: [Job] -> [Operation] -> [Machine] -> [Assignment]
+fifo js ops ms = run fifo' js ops ms
+
 so :: [Job] -> [Operation] -> [Machine] -> [Assignment]
 so js ops ms = run so' js ops ms
 
+sjlo :: [Job] -> [Operation] -> [Machine] -> [Assignment]
+sjlo js ops ms = run sjlo' js ops ms
+
 so' :: [Operation] -> Queue
-so' ops = reverse ops
+so' ops = sortBy (\l r -> compare (duration l) (duration r)) ops
+
+fifo' :: [Operation] -> Queue
+fifo' ops = ops
+
+sjlo' :: [Operation] -> Queue
+sjlo' ops = sortBy cmp ops
+  where cmp l r
+          | (parent l) == (parent r) = compare (duration r) (duration l) -- lo
+          | otherwise = compare (duration' $ parent l) (duration' $ parent r) -- sj
+        duration' j = [d | (j', d) <- jobDurations, j' == j] !! 0
+        jobDurations = map (\j -> (j, jobDuration j)) jobs
+        jobDuration j = sum [duration o | o <- ops, j == parent o]
+        jobs = nubOrdBy (\l r -> compare l r) jobs'
+        jobs' = map parent ops
 
 run :: ([Operation] -> Queue) -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
