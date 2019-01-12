@@ -11,6 +11,7 @@ import Machine
 import Assignment
 
 import QueueAlgorithmsTests (queueAlgorithmsTests)
+import ExploratoryTests (exploratoryTests)
   
 jobs = [Job 1 0 0, Job 2 0 2]
 operations = [Operation 1 1 0 0 2 0, Operation 2 2 0 0 2 0]
@@ -29,6 +30,7 @@ main = do
                                      , wStretchTest
                                      , pStretchTest
                                      , queueAlgorithmsTests
+                                     , exploratoryTests
                                      ])
 
 dummyTest :: TestTree

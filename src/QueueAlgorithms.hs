@@ -6,8 +6,9 @@ module QueueAlgorithms
   ) where
 
 import Data.List (sortBy)
-import Data.List.Extra (nubOrdBy)
 import Control.Exception (assert)
+
+import Data.List.Extra (nubOrdBy)
 
 import Job (Job, uuid, arrival)
 import Operation (Operation, parent, duration)

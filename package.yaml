@@ -38,3 +38,5 @@ tests:
     - hamulator
     - tasty
     - tasty-hunit
+    - extra
+    - heap
