@@ -1,9 +1,16 @@
 module QueueAlgorithms
   ( assignInTimeFrame
   , so
-  , sjlo
-  , sjlo'
+  , lo
   , fifo
+  , lifo
+  , sjlo
+  , sjso
+  , ljso
+  , ljlo
+  , rrso
+  , rrlo
+  , run
   ) where
 
 import Data.List (sortBy)
@@ -18,31 +25,57 @@ import Assignment (Assignment (Assignment))
 type Queue = [Operation]
 type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
+type QueueAlgorithm = [Operation] -> Queue
 
-fifo :: [Job] -> [Operation] -> [Machine] -> [Assignment]
-fifo js ops ms = run fifo' js ops ms
+so :: QueueAlgorithm
+so ops = sortBy (\l r -> compare (duration l) (duration r)) ops
 
-so :: [Job] -> [Operation] -> [Machine] -> [Assignment]
-so js ops ms = run so' js ops ms
+lo :: QueueAlgorithm
+lo = reverse . so
 
-sjlo :: [Job] -> [Operation] -> [Machine] -> [Assignment]
-sjlo js ops ms = run sjlo' js ops ms
+fifo :: QueueAlgorithm
+fifo ops = ops
 
-so' :: [Operation] -> Queue
-so' ops = sortBy (\l r -> compare (duration l) (duration r)) ops
+lifo :: QueueAlgorithm
+lifo = reverse . fifo
 
-fifo' :: [Operation] -> Queue
-fifo' ops = ops
-
-sjlo' :: [Operation] -> Queue
-sjlo' ops = concat $ map snd $ sortBy jCmp dSortedOps
+sjlo :: QueueAlgorithm
+sjlo ops = concat $ map snd $ sortBy jCmp dSortedOps
   where dSortedOps = map (\(_, ops') -> (sum $ map duration ops', sortBy oCmp ops')) jOps
         oCmp l r = compare (duration r) (duration l) -- lo
         jCmp l r = compare (fst l) (fst r)           -- sj
         jOps = Map.toList
                $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
 
-run :: ([Operation] -> Queue) -> [Job] -> [Operation] -> [Machine]
+sjso :: QueueAlgorithm          -- TODO: commonize
+sjso ops = concat $ map snd $ sortBy jCmp dSortedOps
+  where dSortedOps = map (\(_, ops') -> (sum $ map duration ops', sortBy oCmp ops')) jOps
+        oCmp l r = compare (duration l) (duration r) -- so
+        jCmp l r = compare (fst l) (fst r)           -- sj
+        jOps = Map.toList
+               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
+
+ljso :: QueueAlgorithm
+ljso = reverse . sjlo
+
+ljlo :: QueueAlgorithm
+ljlo = reverse . sjso
+
+rrso :: QueueAlgorithm
+rrso ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concat $ map (zip [1..]) sortedOpss
+  where sortedOpss = map (sortBy oCmp) opss
+        oCmp l r = compare (duration l) (duration r) -- so
+        opss = map snd $ Map.toList
+               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
+
+rrlo :: QueueAlgorithm          -- TODO: commonize
+rrlo ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concat $ map (zip [1..]) sortedOpss
+  where sortedOpss = map (sortBy oCmp) opss
+        oCmp l r = compare (duration r) (duration l) -- lo
+        opss = map snd $ Map.toList
+               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
+
+run :: QueueAlgorithm -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
 run alg js ops ms = run' alg (-1) sortedJops emptyMachines []
   where
@@ -52,7 +85,7 @@ run alg js ops ms = run' alg (-1) sortedJops emptyMachines []
     constructJOpsMap acc o = Map.insertWith (\_ ops' -> o:ops') (parent o) [o] acc
     emptyMachines = map (\x -> (x, Nothing)) ms
 
-run' :: ([Operation] -> Queue) -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
+run' :: QueueAlgorithm -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
      -> [Assignment]
 run' _ t [] mops q = as
   where

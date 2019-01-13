@@ -5,7 +5,7 @@ module QueueAlgorithmsTests
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import QueueAlgorithms (assignInTimeFrame, so)
+import QueueAlgorithms (assignInTimeFrame, so, run)
 import Operation
 import Machine
 import Assignment
@@ -94,7 +94,7 @@ assignInTimeFrameTest''''' = testCase "Test algorithm working for bigger instanc
 
 soTest :: TestTree
 soTest = testCase "Test algorithm working"
-  (assertEqual "" expectedAs (so jobs' operations' machines'))
+  (assertEqual "" expectedAs (run so jobs' operations' machines'))
   where
     expectedAs = [
       Assignment 12 (operations' !! 2) (machines' !! 1)
