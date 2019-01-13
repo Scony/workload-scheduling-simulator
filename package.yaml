@@ -23,6 +23,7 @@ executables:
     - -Wunused-imports
     - -Werror
     - -O2
+    # - -funbox-strict-fields
     dependencies:
     - hamulator
 

@@ -10,6 +10,8 @@ module Solution
   , flow
   ) where
 
+import qualified Data.IntMap.Strict as Map
+
 import Job (Job (arrival, uuid))
 import Assignment (Assignment (finish, operation))
 import Operation (parent, duration)
@@ -23,8 +25,11 @@ totalFlow js as = total $ costs js as flow
 averageFlow :: [Job] -> [Assignment] -> Float
 averageFlow js as = average $ costs js as flow
 
-costs :: [Job] -> [Assignment] -> (Job -> [Assignment] -> a) -> [(a, Job)]
-costs js as cost = map (\x -> (cost x as, x)) js
+costs :: [Job] -> [Assignment] -> (Job -> [Assignment] -> a) -> [(a, Job)] -- TODO: fix funs due to impr
+costs js as cost = map (\(j, as') -> (cost j as', j)) jAs
+  where jAs = map (\(j, as') -> ([j' | j' <- js, uuid j' == j] !! 0, as')) jAs'
+        jAs' = Map.toList $ foldl constructJAsMap Map.empty as
+        constructJAsMap acc a = Map.insertWith (\_ as' -> a:as') (parent $ operation a) [a] acc
 
 total :: (Num a) => [(a, Job)] -> a
 total cjs = sum $ map fst cjs

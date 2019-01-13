@@ -46,8 +46,10 @@ run :: ([Operation] -> Queue) -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
 run alg js ops ms = run' alg (-1) sortedJops emptyMachines []
   where
-    sortedJops = sortBy (\(j1, _) (j2, _) -> compare (arrival j1) (arrival j2)) jops
-    jops = map (\j -> (j, [op | op <- ops, uuid j == parent op])) js
+    sortedJops = sortBy (\(j1, _) (j2, _) -> compare (arrival j1) (arrival j2)) jOps
+    jOps = map (\(j, ops') -> ([j' | j' <- js, uuid j' == j] !! 0, ops')) jOps'
+    jOps' = Map.toList $ foldl constructJOpsMap Map.empty ops
+    constructJOpsMap acc o = Map.insertWith (\_ ops' -> o:ops') (parent o) [o] acc
     emptyMachines = map (\x -> (x, Nothing)) ms
 
 run' :: ([Operation] -> Queue) -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
