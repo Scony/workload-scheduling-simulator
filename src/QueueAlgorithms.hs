@@ -15,7 +15,7 @@ module QueueAlgorithms
 
 import Data.List (sortBy)
 import qualified Data.IntMap.Strict as Map
-import Control.Exception (assert)
+import Utils (assert)
 
 import Job (Job, uuid, arrival)
 import Operation (Operation, parent, duration)
@@ -101,7 +101,7 @@ run' alg t jops mops q = as ++ run' alg newT newJops newMops newQ'
 
 assignInTimeFrame :: [(Machine, Maybe (Operation, Time))] -> Queue -> Time -> Time
                   -> ([(Machine, Maybe (Operation, Time))], Queue, [Assignment])
-assignInTimeFrame mops q from until = assert workIsOngoing assignInTimeFrame' mops q from until
+assignInTimeFrame mops q from until = assert workIsOngoing "WiO" assignInTimeFrame' mops q from until
   where
     workIsOngoing = and $ map workIsOngoing' mops
     workIsOngoing' (_, op) = case op of

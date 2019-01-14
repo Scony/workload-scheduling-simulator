@@ -7,8 +7,7 @@ import Data.List.Extra (nubOrdBy)
 import Assignment (Assignment, finish, operation)
 import Job (Job, arrival)
 import Operation (Operation, duration, parentOf, uuid)
-
-assert pred msg x = if pred then x else error msg
+import Utils (assert)
 
 validateSolution :: [Job] -> [Operation] -> [Assignment] -> [Assignment]
 validateSolution js ops as = validateSolutionSize ops
