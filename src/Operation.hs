@@ -5,9 +5,6 @@ module Operation
 
 import Job (Job (uuid))
 
-parentOf :: [Job] -> Operation -> Job -- TODO maybe ?
-parentOf js op = [j | j <- js, Job.uuid j == Operation.parent op] !! 0
-
 data Operation = Operation { parent :: Int
                            , uuid :: Int
                            , kind :: Int
@@ -22,3 +19,9 @@ instance Read Operation where
 
 instance Eq Operation where
   Operation _ a _ _ _ _ == Operation _ b _ _ _ _ = a == b
+
+parentOf :: [Job] -> Operation -> Job
+parentOf [] op = error "cannot find parent Job"
+parentOf (j:js) op
+  | Job.uuid j == parent op = j
+  | otherwise = parentOf js op
