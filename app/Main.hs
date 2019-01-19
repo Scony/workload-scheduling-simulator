@@ -18,7 +18,7 @@ import Job (arrival, uuid)
 import Validator (validateSolution)
 import Operation (parent)
 
-replace a b s = map (\x -> if x == a then b else x) s
+replace a b = map (\x -> if x == a then b else x)
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
 
 data Arguments
@@ -57,7 +57,7 @@ main' (Run algorithm machinesNum costFunction) = do
         "apstretch" -> Solution.pStretch approxJobPerfectFlows a b
         _ -> error "choose cost function!!"
         where approxJobPerfectFlows = map approxJobPerfectFlow jobs
-              approxJobPerfectFlow j = (Solution.costs [j] solution Solution.flow) !! 0
+              approxJobPerfectFlow j = head $ Solution.costs [j] solution Solution.flow
                 where solution = QAlgorithms.run QAlgorithms.sjlo [j] operations' machines
                       operations' = [o | o <- operations, uuid j == parent o]
 
@@ -67,8 +67,8 @@ main' (Run algorithm machinesNum costFunction) = do
                          $ alg jobs operations machines
   let queueAlgorithm alg = Solution.costs jobs solution costFun
         where solution = validateSolution jobs operations $ QAlgorithms.run alg jobs operations machines
-  let cjsInOrder cjs = sortBy (\(_, j1) (_, j2) -> compare (arrival j1) (arrival j2)) cjs
-  let jobCosts cjs = mapM_ (\(c, _) -> putStrLn $ show c) (cjsInOrder cjs)
+  let cjsInOrder = sortBy (\(_, j1) (_, j2) -> compare (arrival j1) (arrival j2))
+  let jobCosts cjs = mapM_ (\(c, _) -> print c) (cjsInOrder cjs)
 
   case algorithm of
     "allin1" -> jobCosts $ scheduleAlgorithm OfflineAlgorithms.allInOne
@@ -106,14 +106,14 @@ main' (Algdet algorithm machinesNum) = do
   let approxJobAlgDets = map approxJobAlgDet jobs
         where approxJobAlgDet j = fromIntegral (fst $ jobUnbiasedFlow j)
                                   / fromIntegral (fst $ approxJobPerfectFlow j)
-              approxJobPerfectFlow j = (Solution.costs [j] solution Solution.flow) !! 0
+              approxJobPerfectFlow j = head $ Solution.costs [j] solution Solution.flow
                 where solution = QAlgorithms.run QAlgorithms.sjlo [j] operations' machines
                       operations' = [o | o <- operations, uuid j == parent o]
-              jobUnbiasedFlow j = (Solution.costs [j] solution Solution.flow) !! 0
+              jobUnbiasedFlow j = head $ Solution.costs [j] solution Solution.flow
                 where solution = QAlgorithms.run (qAlgorithmByName algorithm) [j] operations' machines
                       operations' = [o | o <- operations, uuid j == parent o]
 
-  mapM_ (putStrLn . show) approxJobAlgDets
+  mapM_ print approxJobAlgDets
 
 qAlgorithmByName :: String -> QAlgorithms.QueueAlgorithm
 qAlgorithmByName name = case name of

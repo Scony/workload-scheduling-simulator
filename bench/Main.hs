@@ -19,5 +19,5 @@ fib 1 = 1
 fib n = fib (n-1) + fib (n-2)
 
 operations :: Int -> Int -> [Operation]
-operations js opsPerJ = concat $ map operations' [1..js]
+operations js opsPerJ = concatMap operations' [1..js]
   where operations' j = [Operation j ((j-1)*opsPerJ+o) 0 0 o 0 | o <- [1..opsPerJ]]
