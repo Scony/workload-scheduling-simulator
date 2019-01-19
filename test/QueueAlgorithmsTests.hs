@@ -5,7 +5,7 @@ module QueueAlgorithmsTests
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import QueueAlgorithms (assignInTimeFrame, so, run)
+import QueueAlgorithms (assignInTimeFrame, so, run, sjmd)
 import Operation
 import Machine
 import Assignment
@@ -19,6 +19,8 @@ queueAlgorithmsTests = testGroup "QueueAlgotithms tests" [dummyTest
                                                          , assignInTimeFrameTest''''
                                                          , assignInTimeFrameTest'''''
                                                          , soTest
+                                                         , sjmdTest
+                                                         , sjmdTest'
                                                          ]
 dummyTest :: TestTree
 dummyTest = testCase "Test nothing"
@@ -93,7 +95,7 @@ assignInTimeFrameTest''''' = testCase "Test algorithm working for bigger instanc
     queue' = [Operation 1 1 0 0 2 0, Operation 1 2 0 0 3 0, Operation 1 3 0 0 2 0]
 
 soTest :: TestTree
-soTest = testCase "Test algorithm working"
+soTest = testCase "Test whole algorithm working with so"
   (assertEqual "" expectedAs (run so jobs' operations' machines'))
   where
     expectedAs = [
@@ -110,3 +112,41 @@ soTest = testCase "Test algorithm working"
       , Operation 3 4 0 0 1 0
       ]
     machines' = [Machine 1 0, Machine 2 0]
+
+sjmdTest :: TestTree
+sjmdTest = testCase "Test sjmd algorithm working, odd"
+  (assertEqual "" expectedQ (sjmd operations'))
+  where
+    expectedQ = [
+      (operations' !! 2)
+      , (operations' !! 1)
+      , (operations' !! 3)
+      , (operations' !! 0)
+      , (operations' !! 4)
+      ]
+
+    operations' = [
+      Operation 1 1 0 0 1 0
+      , Operation 1 2 0 0 2 0
+      , Operation 1 3 0 0 5 0
+      , Operation 1 4 0 0 7 0
+      , Operation 1 5 0 0 15 0
+      ]
+
+sjmdTest' :: TestTree
+sjmdTest' = testCase "Test sjmd algorithm working, even"
+  (assertEqual "" expectedQ (sjmd operations'))
+  where
+    expectedQ = [
+      (operations' !! 2)
+      , (operations' !! 1)
+      , (operations' !! 3)
+      , (operations' !! 0)
+      ]
+
+    operations' = [
+      Operation 1 1 0 0 1 0
+      , Operation 1 2 0 0 2 0
+      , Operation 1 3 0 0 5 0
+      , Operation 1 4 0 0 7 0
+      ]

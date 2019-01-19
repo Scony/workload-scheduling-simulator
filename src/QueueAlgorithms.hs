@@ -1,16 +1,8 @@
 module QueueAlgorithms
   ( assignInTimeFrame
-  , so
-  , lo
-  , fifo
-  , lifo
-  , sjlo
-  , sjso
-  , ljso
-  , ljlo
-  , rrso
-  , rrlo
+  , so, lo, fifo, lifo, sjlo, sjso, ljso, ljlo, rrso, rrlo, sjmd, sjmdr, md, mdr
   , run
+  , QueueAlgorithm
   ) where
 
 import Data.List (sortBy)
@@ -39,21 +31,18 @@ fifo ops = ops
 lifo :: QueueAlgorithm
 lifo = reverse . fifo
 
-sjlo :: QueueAlgorithm
-sjlo ops = concat $ map snd $ sortBy jCmp dSortedOps
-  where dSortedOps = map (\(_, ops') -> (sum $ map duration ops', sortBy oCmp ops')) jOps
-        oCmp l r = compare (duration r) (duration l) -- lo
+sjx :: QueueAlgorithm -> [Operation] -> Queue
+sjx opAlg ops = concat $ map snd $ sortBy jCmp dOps
+  where dOps = map (\(_, ops') -> (sum $ map duration ops', opAlg ops')) jOps
         jCmp l r = compare (fst l) (fst r)           -- sj
         jOps = Map.toList
                $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
 
-sjso :: QueueAlgorithm          -- TODO: commonize
-sjso ops = concat $ map snd $ sortBy jCmp dSortedOps
-  where dSortedOps = map (\(_, ops') -> (sum $ map duration ops', sortBy oCmp ops')) jOps
-        oCmp l r = compare (duration l) (duration r) -- so
-        jCmp l r = compare (fst l) (fst r)           -- sj
-        jOps = Map.toList
-               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
+sjlo :: QueueAlgorithm
+sjlo = sjx lo
+
+sjso :: QueueAlgorithm
+sjso = sjx so
 
 ljso :: QueueAlgorithm
 ljso = reverse . sjlo
@@ -61,19 +50,35 @@ ljso = reverse . sjlo
 ljlo :: QueueAlgorithm
 ljlo = reverse . sjso
 
-rrso :: QueueAlgorithm
-rrso ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concat $ map (zip [1..]) sortedOpss
-  where sortedOpss = map (sortBy oCmp) opss
-        oCmp l r = compare (duration l) (duration r) -- so
+md :: QueueAlgorithm
+md ops = (map snd
+          . sortBy (\l r -> compare (fst l) (fst r))
+          . map (\(ix, o) -> (abs(ix - midIx), o))
+          . zip [0..]
+          . sortBy (\l r -> compare (duration l) (duration r)))
+          ops
+  where midIx = floor $ fromIntegral (length ops) / 2 :: Int
+
+mdr :: QueueAlgorithm
+mdr = reverse . md
+
+sjmd :: QueueAlgorithm
+sjmd = sjx md
+
+sjmdr :: QueueAlgorithm
+sjmdr = sjx mdr
+
+rrx :: QueueAlgorithm -> [Operation] -> Queue
+rrx opAlg ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concat $ map (zip [1..]) orderedOpss
+  where orderedOpss = map opAlg opss
         opss = map snd $ Map.toList
                $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
 
-rrlo :: QueueAlgorithm          -- TODO: commonize
-rrlo ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concat $ map (zip [1..]) sortedOpss
-  where sortedOpss = map (sortBy oCmp) opss
-        oCmp l r = compare (duration r) (duration l) -- lo
-        opss = map snd $ Map.toList
-               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
+rrso :: QueueAlgorithm
+rrso = rrx so
+
+rrlo :: QueueAlgorithm
+rrlo = rrx lo
 
 run :: QueueAlgorithm -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
