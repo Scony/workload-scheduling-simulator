@@ -13,7 +13,7 @@ import Schedule (Schedule, calculateSolution)
 import Assignment (Assignment)
 
 allInOne :: [Job] -> [Operation] -> [Machine] -> Schedule
-allInOne js ops ms = [(ms !! 0, ops)]
+allInOne js ops ms = [(head ms, ops)]
 
 opt :: (Ord a) => ([Job] -> [Assignment] -> a) -> [Job] -> [Operation] -> [Machine] -> Schedule
 opt fun js ops ms = bestSchedule minimum $ weightedSchedules fun js ops ms
@@ -22,7 +22,7 @@ worst :: (Ord a) => ([Job] -> [Assignment] -> a) -> [Job] -> [Operation] -> [Mac
 worst fun js ops ms = bestSchedule maximum $ weightedSchedules fun js ops ms
 
 bestSchedule :: (Eq a) => ([a] -> a) -> [(a, Schedule)] -> Schedule
-bestSchedule fun ss = snd $ (filter ((==bestWeight) . fst) ss) !! 0
+bestSchedule fun ss = snd $ head $ filter ((==bestWeight) . fst) ss
   where bestWeight = fun $ map fst ss
 
 weightedSchedules :: ([Job] -> [Assignment] -> a) -> [Job] -> [Operation] -> [Machine]
@@ -35,8 +35,7 @@ weightedSchedules fun js ops ms = map (\x -> (eval x, x)) schedules
 possibilities :: [a] -> Int -> [[[a]]]
 possibilities xs subsetsNum = process xs
   where process = map (\x -> x ++ replicate (subsetsNum - length x) [])
-          . concat
-          . map superPermutations
+          . concatMap superPermutations
           . filter (\x -> length x <= subsetsNum)
           . partitions
 
@@ -48,7 +47,7 @@ partitions :: [a] -> [[[a]]]
 partitions [] = [[]]
 partitions (x:xs) = expand x $ partitions xs
   where expand :: a -> [[[a]]] -> [[[a]]]
-        expand x ys = concatMap (extend x) ys
+        expand x = concatMap (extend x)
 
         extend :: a -> [[a]] -> [[[a]]]
         extend x [] = [[[x]]]

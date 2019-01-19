@@ -23,7 +23,7 @@ validateOperationFinishes :: [Job] -> [Assignment] -> [Assignment]
 validateOperationFinishes js as = assert (all operationFinishIsValid as) msg as
   where operationFinishIsValid a = finish a
                                    >=
-                                   (arrival $ parentOf js $ operation a) + (duration $ operation a)
+                                   arrival (parentOf js $ operation a) + duration (operation a)
         msg = "Operation finishes are not valid"
 
 validateSingularOperationExecutions :: [Operation] -> [Assignment] -> [Assignment]
@@ -32,5 +32,5 @@ validateSingularOperationExecutions ops as = assert (length ops == length unique
         msg = "Operation executions are not singular: "
 
 validateEachMachineProcessAtMostOneOperationAtTheTime :: [Assignment] -> [Assignment]
-validateEachMachineProcessAtMostOneOperationAtTheTime as = assert True msg as
+validateEachMachineProcessAtMostOneOperationAtTheTime = assert True msg
   where msg = ""

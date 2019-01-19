@@ -20,7 +20,7 @@ type MachineState = (Machine, Maybe (Operation, Time))
 type QueueAlgorithm = [Operation] -> Queue
 
 so :: QueueAlgorithm
-so ops = sortBy (\l r -> compare (duration l) (duration r)) ops
+so = sortBy (\l r -> compare (duration l) (duration r))
 
 lo :: QueueAlgorithm
 lo = reverse . so
@@ -32,7 +32,7 @@ lifo :: QueueAlgorithm
 lifo = reverse . fifo
 
 sjx :: QueueAlgorithm -> [Operation] -> Queue
-sjx opAlg ops = concat $ map snd $ sortBy jCmp dOps
+sjx opAlg ops = concatMap snd $ sortBy jCmp dOps
   where dOps = map (\(_, ops') -> (sum $ map duration ops', opAlg ops')) jOps
         jCmp l r = compare (fst l) (fst r)           -- sj
         jOps = Map.toList
@@ -69,7 +69,7 @@ sjmdr :: QueueAlgorithm
 sjmdr = sjx mdr
 
 rrx :: QueueAlgorithm -> [Operation] -> Queue
-rrx opAlg ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concat $ map (zip [1..]) orderedOpss
+rrx opAlg ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concatMap (zip [1..]) orderedOpss
   where orderedOpss = map opAlg opss
         opss = map snd $ Map.toList
                $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
@@ -85,7 +85,7 @@ run :: QueueAlgorithm -> [Job] -> [Operation] -> [Machine]
 run alg js ops ms = run' alg (-1) sortedJops emptyMachines []
   where
     sortedJops = sortBy (\(j1, _) (j2, _) -> compare (arrival j1) (arrival j2)) jOps
-    jOps = map (\(j, ops') -> ([j' | j' <- js, uuid j' == j] !! 0, ops')) jOps'
+    jOps = map (\(j, ops') -> (head [j' | j' <- js, uuid j' == j], ops')) jOps'
     jOps' = Map.toList $ foldl constructJOpsMap Map.empty ops
     constructJOpsMap acc o = Map.insertWith (\_ ops' -> o:ops') (parent o) [o] acc
     emptyMachines = map (\x -> (x, Nothing)) ms
@@ -102,13 +102,13 @@ run' alg t jops mops q = as ++ run' alg newT newJops newMops newQ'
     opsToProcess = newQ ++ newOps
     newOps = concat [ops | (j, ops) <- jops, arrival j == newT]
     (newMops, newQ, as) = assignInTimeFrame mops q t newT
-    newT = (arrival . fst . (!! 0)) jops
+    newT = (arrival . fst . head) jops
 
 assignInTimeFrame :: [(Machine, Maybe (Operation, Time))] -> Queue -> Time -> Time
                   -> ([(Machine, Maybe (Operation, Time))], Queue, [Assignment])
 assignInTimeFrame mops q from until = assert workIsOngoing "WiO" assignInTimeFrame' mops q from until
   where
-    workIsOngoing = and $ map workIsOngoing' mops
+    workIsOngoing = all workIsOngoing' mops
     workIsOngoing' (_, op) = case op of
       Just (_, t) -> t > from
       Nothing -> True
@@ -128,18 +128,18 @@ assignInTimeFrame' mops [] _ until = (newMops, [], as)
 assignInTimeFrame' mops (op:ops) from until
   | freeMachineExists = assignInTimeFrame' (mopsWithFilledOne mops (Just op)) ops from until
   | freeMachineCanExist = (newMops, newQ, newAs' ++ newAs)
-  | releaseableMachinesExist = (mopsWithFreedOnes', (op:ops), newAs'')
-  | otherwise = (mops, (op:ops), [])
+  | releaseableMachinesExist = (mopsWithFreedOnes', op:ops, newAs'')
+  | otherwise = (mops, op:ops, [])
   where
-    freeMachineExists = or $ map isMachineFree mops
+    freeMachineExists = any isMachineFree mops
     isMachineFree (m, op') = case op' of
       Just _ -> False
       Nothing -> True
     mopsWithFilledOne mops' Nothing = mops'
     mopsWithFilledOne ((m, op'):mops') (Just op'') = case op' of
-      Just _ -> (m, op'):(mopsWithFilledOne mops' (Just op''))
-      Nothing -> (m, Just (op'', from + duration op'')):(mopsWithFilledOne mops' Nothing)
-    freeMachineCanExist = or $ map isMachineFreeable mops
+      Just _ -> (m, op') : mopsWithFilledOne mops' (Just op'')
+      Nothing -> (m, Just (op'', from + duration op'')):mopsWithFilledOne mops' Nothing
+    freeMachineCanExist = any isMachineFreeable mops
     isMachineFreeable (_, op') = case op' of
       Just (_, t) -> t < until
       Nothing -> False
@@ -149,7 +149,7 @@ assignInTimeFrame' mops (op:ops) from until
     fetchT acc (_, op') = case op' of
       Just (_, t) -> t:acc
       Nothing -> acc
-    releaseableMachinesExist = or $ map isMachineReleasable mops
+    releaseableMachinesExist = any isMachineReleasable mops
     isMachineReleasable (_, op') = case op' of
       Just (_, t) -> t == until
       Nothing -> False

@@ -6,12 +6,11 @@ import QueueAlgorithms
 import Operation
 
 main :: IO()
-main = do
-  defaultMain [ bench "fib 5" $ whnf fib 5
-              , bench "sjlo 50.000" $ whnf sjlo $ operations 1000 50
-              , bench "sjlo 100.000" $ whnf sjlo $ operations 2000 50
-              , bench "sjlo 150.000" $ whnf sjlo $ operations 3000 50
-              ]
+main = defaultMain [ bench "fib 5" $ whnf fib 5
+                   , bench "sjlo 50.000" $ whnf sjlo $ operations 1000 50
+                   , bench "sjlo 100.000" $ whnf sjlo $ operations 2000 50
+                   , bench "sjlo 150.000" $ whnf sjlo $ operations 3000 50
+                   ]
 
 fib :: Int -> Int
 fib 0 = 0
