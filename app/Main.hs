@@ -1,8 +1,12 @@
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
-import System.Environment
-import System.IO
+import System.IO (hPutStrLn, stderr)
 import Data.List (sortBy)
+
+import Options.Generic (ParseRecord, Generic, getRecord)
 
 import Input (parseInstanceV2)
 import qualified OfflineAlgorithms
@@ -17,16 +21,23 @@ import Operation (parent)
 replace a b s = map (\x -> if x == a then b else x) s
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
 
+data Arguments
+  = Run String Int String
+  | Dummy Int
+  deriving (Generic, Show)
+
+instance ParseRecord Arguments
+
 main :: IO ()
 main = do
+  parsedArgs <- getRecord "Multipurpose workload scheduling simulator"
+  main' parsedArgs
+
+main' :: Arguments -> IO ()
+main' (Run algorithm machinesNum costFunction) = do
   stdin <- getContents
-  args <- getArgs
 
-  let algorithm = args !! 0 :: String
-  let machinesNum = read $ args !! 1 :: Int
-  let costFunction = args !! 2 :: String
   let machines = ordinaryMachines machinesNum
-
   let (jobs, operations) = (parseInstanceV2 . mkLines) stdin
   let jobsNum = length jobs
   let operationsNum = length operations

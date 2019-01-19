@@ -26,6 +26,7 @@ executables:
     # - -funbox-strict-fields
     dependencies:
     - hamulator
+    - optparse-generic
 
 tests:
   hamulator-test:
