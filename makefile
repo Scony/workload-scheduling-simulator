@@ -7,5 +7,9 @@ profiling:
 	stack setup
 	stack install --profile --trace --local-bin-path bin/
 
+hlint:
+	hlint app/ src/ -r
+
 clean:
 	rm -rf bin
+	rm -f report.html

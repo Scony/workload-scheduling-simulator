@@ -5,7 +5,7 @@ module QueueAlgorithmsTests
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import QueueAlgorithms (assignInTimeFrame, so, run, sjmd)
+import QueueAlgorithms
 import Operation
 import Machine
 import Assignment
@@ -117,14 +117,7 @@ sjmdTest :: TestTree
 sjmdTest = testCase "Test sjmd algorithm working, odd"
   (assertEqual "" expectedQ (sjmd operations'))
   where
-    expectedQ = [
-      (operations' !! 2)
-      , (operations' !! 1)
-      , (operations' !! 3)
-      , (operations' !! 0)
-      , (operations' !! 4)
-      ]
-
+    expectedQ = map (operations' !!) [2,1,3,0,4]
     operations' = [
       Operation 1 1 0 0 1 0
       , Operation 1 2 0 0 2 0
@@ -137,13 +130,7 @@ sjmdTest' :: TestTree
 sjmdTest' = testCase "Test sjmd algorithm working, even"
   (assertEqual "" expectedQ (sjmd operations'))
   where
-    expectedQ = [
-      (operations' !! 2)
-      , (operations' !! 1)
-      , (operations' !! 3)
-      , (operations' !! 0)
-      ]
-
+    expectedQ = map (operations' !!) [2,1,3,0]
     operations' = [
       Operation 1 1 0 0 1 0
       , Operation 1 2 0 0 2 0
