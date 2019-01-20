@@ -1,5 +1,5 @@
 module Machine
-  ( Machine(Machine)
+  ( Machine(Machine, uuid)
   , ordinaryMachines
   ) where
 
