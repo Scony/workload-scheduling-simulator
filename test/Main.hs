@@ -15,8 +15,8 @@ import ExploratoryTests (exploratoryTests)
   
 jobs = [Job 1 0 0, Job 2 0 2]
 operations = [Operation 1 1 0 0 2 0, Operation 2 2 0 0 2 0]
-machine = Machine 1 0
-assignments = [Assignment 2 (operations !! 0) machine, Assignment 4 (operations !! 1) machine]
+machine'' = Machine 1 0
+assignments = [Assignment 2 (operations !! 0) machine'', Assignment 4 (operations !! 1) machine'']
 
 main :: IO ()
 main = do

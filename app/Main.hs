@@ -5,6 +5,7 @@ module Main where
 
 import System.IO (hPutStrLn, stderr)
 import Data.List (sortBy)
+import Data.Maybe (fromMaybe)
 
 import Options.Generic (ParseRecord, Generic, getRecord)
 
@@ -24,8 +25,9 @@ mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
 data Arguments
   = Online { algorithm :: String
            , machines :: Int
-           , costfunction :: String
+           , costfun :: String
            , restarts :: Bool
+           , novalid :: Bool
            }                  -- running online algorithms
   | Offline String Int String -- running offline algorithms
   | Algdet String Int         -- approximated algorithm deteriorations
@@ -40,7 +42,7 @@ main = do
 
 main' :: Arguments -> IO ()
 
-main' (Online algorithmName machinesNum costFunction restarts) = do
+main' (Online algorithmName machinesNum costFunction restarts noValidation) = do
   stdin <- getContents
 
   let machines = ordinaryMachines machinesNum
@@ -54,6 +56,7 @@ main' (Online algorithmName machinesNum costFunction restarts) = do
   hPutStrLn stderr $ "> algorithm: " ++ algorithmName
   hPutStrLn stderr $ "> cost function: " ++ costFunction
   hPutStrLn stderr $ "> restarts: " ++ show restarts
+  hPutStrLn stderr $ "> validation: " ++ show (not noValidation)
 
   let algorithm = qAlgorithmByName algorithmName
   let costFun a b = case costFunction of
@@ -71,8 +74,9 @@ main' (Online algorithmName machinesNum costFunction restarts) = do
                       operations' = [o | o <- operations, uuid j == parent o]
 
   let runner = if restarts then QAlgorithms.restartful else QAlgorithms.restartless
+  let validator js ops as = if noValidation then as else validateSolution js ops as
   let queueAlgorithm alg = Solution.costs jobs solution costFun
-        where solution = validateSolution jobs operations
+        where solution = validator jobs operations
                          $ QAlgorithms.run runner alg jobs operations machines
   let cjsInOrder = sortBy (\(_, j1) (_, j2) -> compare (arrival j1) (arrival j2))
   let jobCosts cjs = mapM_ (\(c, _) -> print c) (cjsInOrder cjs)
@@ -141,6 +145,4 @@ main' (Algdet algorithmName machinesNum) = do
   mapM_ print approxJobAlgDets
 
 qAlgorithmByName :: String -> QAlgorithms.QueueAlgorithm
-qAlgorithmByName name = case QAlgorithms.lookupByName name of
-  Just a -> a
-  Nothing -> error "algorithm not found"
+qAlgorithmByName name = fromMaybe (error "algorithm not found") (QAlgorithms.lookupByName name)

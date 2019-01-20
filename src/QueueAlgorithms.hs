@@ -147,17 +147,17 @@ runAlgorithmWithRestarts alg t mops ops = (mopsAfterResets, q)
       Nothing -> (m, opt)
     q = map (\o -> if Operation.uuid o < 0 then unFakeOp o else o) q'
     opsToReset = [unFakeOp o | o <- q', Operation.uuid o < 0]
-    q' = filter (\o -> not $ o `elem` resetFreeOpsAfterStage2) opsStage2
-    resetFreeOpsAfterStage2 = [o | o <- (take mNumForStage2 opsStage2), Operation.uuid o < 0]
+    q' = filter (`notElem` resetFreeOpsAfterStage2) opsStage2
+    resetFreeOpsAfterStage2 = [o | o <- take mNumForStage2 opsStage2, Operation.uuid o < 0]
     opsStage2 = alg $ fakeOpsForStage2 ++ ops
-    fakeOpsForStage2 = filter (\o -> not $ o `elem` resetFreeOpsAfterStage1) fakeOpsForStage2'
+    fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1) fakeOpsForStage2'
     fakeOpsForStage2' = [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
     mNumForStage2 = mNum - length resetFreeOpsAfterStage1
-    resetFreeOpsAfterStage1 = [o | o <- (take mNum opsStage1), Operation.uuid o < 0]
+    resetFreeOpsAfterStage1 = [o | o <- take mNum opsStage1, Operation.uuid o < 0]
     opsStage1 = alg $ fakeOps ++ ops
     fakeOps = [fakeOp o (finishTime-t) | (_, Just (o, finishTime)) <- mops]
     fakeOp (Operation p u k o _ c) fakeD = Operation p (-u) k o fakeD c
-    unFakeOp (Operation p u k o d c) = (Operation p (-u) k o d c)
+    unFakeOp (Operation p u k o d c) = Operation p (-u) k o d c
     mNum = length mops
 
 assignInTimeFrame :: [(Machine, Maybe (Operation, Time))] -> Queue -> Time -> Time

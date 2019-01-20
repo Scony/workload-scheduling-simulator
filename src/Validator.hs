@@ -41,11 +41,11 @@ validateEachMachineProcessAtMostOneOperationAtTheTime as = assert allMsValid msg
         allMsValid = all validateAs sortedAss
         validateAs as' = all pairIsFine $ zip as' $ tail as'
         pairIsFine (l, r) = finish l <= beginR
-          where beginR = (finish r) - (duration $ operation r)
-        sortedAss = map (\as' -> sortBy cmp as') ass
+          where beginR = finish r - duration (operation r)
+        sortedAss = map (sortBy cmp) ass
         cmp l r = if beginL == beginR then compare (finish l) (finish r) else compare beginL beginR
-          where beginL = (finish l) - (duration $ operation l)
-                beginR = (finish r) - (duration $ operation r)
+          where beginL = finish l - duration (operation l)
+                beginR = finish r - duration (operation r)
         ass = map snd
               $ Map.toList
               $ foldl mapInserter Map.empty as

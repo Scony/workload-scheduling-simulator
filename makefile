@@ -13,3 +13,4 @@ hlint:
 clean:
 	rm -rf bin
 	rm -f report.html
+	rm -f simulator-exe.prof
