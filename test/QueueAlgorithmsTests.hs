@@ -2,6 +2,8 @@ module QueueAlgorithmsTests
   ( queueAlgorithmsTests
   ) where
 
+import Data.List (sortBy)
+
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -21,6 +23,8 @@ queueAlgorithmsTests = testGroup "QueueAlgotithms tests" [dummyTest
                                                          , soTest
                                                          , sjmdTest
                                                          , sjmdTest'
+                                                         , restartlessTest
+                                                         , restartfulTest
                                                          ]
 dummyTest :: TestTree
 dummyTest = testCase "Test nothing"
@@ -96,7 +100,7 @@ assignInTimeFrameTest''''' = testCase "Test algorithm working for bigger instanc
 
 soTest :: TestTree
 soTest = testCase "Test whole algorithm working with so"
-  (assertEqual "" expectedAs (run so jobs' operations' machines'))
+  (assertEqual "" expectedAs (run restartless so jobs' operations' machines'))
   where
     expectedAs = [
       Assignment 12 (operations' !! 2) (machines' !! 1)
@@ -137,3 +141,43 @@ sjmdTest' = testCase "Test sjmd algorithm working, even"
       , Operation 1 3 0 0 5 0
       , Operation 1 4 0 0 7 0
       ]
+
+restartlessTest :: TestTree
+restartlessTest = testCase "Restartless runner does not perform restarts"
+  (assertEqual "" expectedAs (run restartless so jobs' operations' machines'))
+  where
+    expectedAs = [
+      Assignment 15 (operations' !! 0) (machines' !! 0)
+      , Assignment 16 (operations' !! 1) (machines' !! 1)
+      , Assignment 17 (operations' !! 3) (machines' !! 0)
+      , Assignment (16+17) (operations' !! 2) (machines' !! 1)
+      ]
+    jobs' = [Job 1 0 0, Job 2 0 5]
+    operations' = [
+      Operation 1 1 0 0 15 0
+      , Operation 1 2 0 0 16 0
+      , Operation 1 3 0 0 17 0
+      , Operation 2 4 0 0 2 0
+      ]
+    machines' = [Machine 1 0, Machine 2 0]
+
+restartfulTest :: TestTree
+restartfulTest = testCase "Restartful runner perform restarts"
+  (assertEqual "" expectedAs sortedAs)
+  where
+    expectedAs = [
+      Assignment 7 (operations' !! 3) (machines' !! 1)
+      , Assignment 15 (operations' !! 0) (machines' !! 0)
+      , Assignment (7+16) (operations' !! 1) (machines' !! 1)
+      , Assignment (15+17) (operations' !! 2) (machines' !! 0)
+      ]
+    jobs' = [Job 1 0 0, Job 2 0 5]
+    operations' = [
+      Operation 1 1 0 0 15 0
+      , Operation 1 2 0 0 16 0
+      , Operation 1 3 0 0 17 0
+      , Operation 2 4 0 0 2 0
+      ]
+    machines' = [Machine 1 0, Machine 2 0]
+    sortedAs = sortBy (\l r -> compare (finish l) (finish r)) as
+    as = run restartful so jobs' operations' machines'

@@ -22,7 +22,11 @@ replace a b = map (\x -> if x == a then b else x)
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
 
 data Arguments
-  = Online String Int String  -- running online algorithms
+  = Online { algorithm :: String
+           , machines :: Int
+           , costfunction :: String
+           , restarts :: Bool
+           }                  -- running online algorithms
   | Offline String Int String -- running offline algorithms
   | Algdet String Int         -- approximated algorithm deteriorations
   deriving (Generic, Show)
@@ -36,7 +40,7 @@ main = do
 
 main' :: Arguments -> IO ()
 
-main' (Online algorithmName machinesNum costFunction) = do
+main' (Online algorithmName machinesNum costFunction restarts) = do
   stdin <- getContents
 
   let machines = ordinaryMachines machinesNum
@@ -49,6 +53,7 @@ main' (Online algorithmName machinesNum costFunction) = do
   hPutStrLn stderr $ "> operations: " ++ show operationsNum
   hPutStrLn stderr $ "> algorithm: " ++ algorithmName
   hPutStrLn stderr $ "> cost function: " ++ costFunction
+  hPutStrLn stderr $ "> restarts: " ++ show restarts
 
   let algorithm = qAlgorithmByName algorithmName
   let costFun a b = case costFunction of
@@ -60,11 +65,15 @@ main' (Online algorithmName machinesNum costFunction) = do
         _ -> error "choose cost function!!"
         where approxJobPerfectFlows = map approxJobPerfectFlow jobs
               approxJobPerfectFlow j = head $ Solution.costs [j] solution Solution.flow
-                where solution = QAlgorithms.run QAlgorithms.sjlo [j] operations' machines
+                where solution = QAlgorithms.run runner' algorithm' [j] operations' machines
+                      runner' = QAlgorithms.restartless
+                      algorithm' = QAlgorithms.sjlo
                       operations' = [o | o <- operations, uuid j == parent o]
 
+  let runner = if restarts then QAlgorithms.restartful else QAlgorithms.restartless
   let queueAlgorithm alg = Solution.costs jobs solution costFun
-        where solution = validateSolution jobs operations $ QAlgorithms.run alg jobs operations machines
+        where solution = validateSolution jobs operations
+                         $ QAlgorithms.run runner alg jobs operations machines
   let cjsInOrder = sortBy (\(_, j1) (_, j2) -> compare (arrival j1) (arrival j2))
   let jobCosts cjs = mapM_ (\(c, _) -> print c) (cjsInOrder cjs)
 
@@ -122,11 +131,12 @@ main' (Algdet algorithmName machinesNum) = do
         where approxJobAlgDet j = fromIntegral (fst $ jobUnbiasedFlow j)
                                   / fromIntegral (fst $ approxJobPerfectFlow j)
               approxJobPerfectFlow j = head $ Solution.costs [j] solution Solution.flow
-                where solution = QAlgorithms.run QAlgorithms.sjlo [j] operations' machines
+                where solution = QAlgorithms.run runner' QAlgorithms.sjlo [j] operations' machines
                       operations' = [o | o <- operations, uuid j == parent o]
               jobUnbiasedFlow j = head $ Solution.costs [j] solution Solution.flow
-                where solution = QAlgorithms.run algorithm [j] operations' machines
+                where solution = QAlgorithms.run runner' algorithm [j] operations' machines
                       operations' = [o | o <- operations, uuid j == parent o]
+              runner' = QAlgorithms.restartless
 
   mapM_ print approxJobAlgDets
 
