@@ -1,3 +1,4 @@
 .stack-work/
 simulator.cabal
 *~
+*.html

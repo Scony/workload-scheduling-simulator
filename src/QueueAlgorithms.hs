@@ -1,7 +1,6 @@
 module QueueAlgorithms
-  ( assignInTimeFrame
+  ( assignInTimeFrame, run, lookupByName
   , so, lo, fifo, lifo, sjlo, sjso, ljso, ljlo, rrso, rrlo, sjmd, sjmdr, md, mdr
-  , run
   , QueueAlgorithm
   ) where
 
@@ -18,6 +17,24 @@ type Queue = [Operation]
 type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
 type QueueAlgorithm = [Operation] -> Queue
+
+lookupByName :: String -> Maybe QueueAlgorithm
+lookupByName name = case name of
+  "so" -> Just so
+  "lo" -> Just lo
+  "fifo" -> Just fifo
+  "lifo" -> Just lifo
+  "sjlo" -> Just sjlo
+  "sjso" -> Just sjso
+  "ljso" -> Just ljso
+  "ljlo" -> Just ljlo
+  "rrso" -> Just rrso
+  "rrlo" -> Just rrlo
+  "sjmd" -> Just sjmd
+  "sjmdr" -> Just sjmdr
+  "md" -> Just md
+  "mdr" -> Just mdr
+  _ -> Nothing
 
 so :: QueueAlgorithm
 so = sortBy (\l r -> compare (duration l) (duration r))
