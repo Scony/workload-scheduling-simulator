@@ -17,8 +17,7 @@ type Queue = [Operation]
 type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
 type QueueAlgorithm = [Operation] -> Queue
-type Runner =
-  QueueAlgorithm -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue -> [Assignment]
+type RestartPolicy = QueueAlgorithm -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
 
 lookupByName :: String -> Maybe QueueAlgorithm
 lookupByName name = case name of
@@ -99,9 +98,9 @@ rrso = rrx so
 rrlo :: QueueAlgorithm
 rrlo = rrx lo
 
-run :: Runner -> QueueAlgorithm -> [Job] -> [Operation] -> [Machine]
+run :: RestartPolicy -> QueueAlgorithm -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
-run runner alg js ops ms = runner alg (-1) sortedJops emptyMachines []
+run restartPolicy alg js ops ms = run' restartPolicy alg (-1) sortedJops emptyMachines []
   where
     sortedJops = sortBy (\(j1, _) (j2, _) -> compare (arrival j1) (arrival j2)) jOps
     jOps = map (\(j, ops') -> (head [j' | j' <- js, Job.uuid j' == j], ops')) jOps'
@@ -109,37 +108,27 @@ run runner alg js ops ms = runner alg (-1) sortedJops emptyMachines []
     constructJOpsMap acc o = Map.insertWith (\_ ops' -> o:ops') (parent o) [o] acc
     emptyMachines = map (\x -> (x, Nothing)) ms
 
-restartless :: QueueAlgorithm -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
-            -> [Assignment]
-restartless _ t [] mops q = as
+run' :: RestartPolicy -> QueueAlgorithm -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
+     -> [Assignment]
+run' _ _ t [] mops q = as
   where
     (_, _, as) = assignInTimeFrame mops q t maxBound
-restartless alg t jops mops q = as ++ restartless alg newT newJops newMops newQ'
+run' restartPolicy alg t jops mops q = as ++ run' restartPolicy alg newT newJops newMops' newQ'
   where
     newJops = filter ((/=newT) . arrival . fst) jops
-    newQ' = alg opsToProcess
+    (newMops', newQ') = restartPolicy alg newT newMops opsToProcess
     opsToProcess = newQ ++ newOps
     newOps = concat [ops | (j, ops) <- jops, arrival j == newT]
     (newMops, newQ, as) = assignInTimeFrame mops q t newT
     newT = (arrival . fst . head) jops
 
-restartful :: QueueAlgorithm -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
-            -> [Assignment]
-restartful _ t [] mops q = as
-  where
-    (_, _, as) = assignInTimeFrame mops q t maxBound
-restartful alg t jops mops q = as ++ restartful alg newT newJops newMops' newQ'
-  where
-    newJops = filter ((/=newT) . arrival . fst) jops
-    (newMops', newQ') = runAlgorithmWithRestarts alg newT newMops opsToProcess
-    opsToProcess = newQ ++ newOps
-    newOps = concat [ops | (j, ops) <- jops, arrival j == newT]
-    (newMops, newQ, as) = assignInTimeFrame mops q t newT
-    newT = (arrival . fst . head) jops
+restartless :: QueueAlgorithm -> Time -> [MachineState] -> [Operation]
+            -> ([MachineState], Queue)
+restartless algorithm _ mops ops = (mops, algorithm ops)
 
-runAlgorithmWithRestarts :: QueueAlgorithm -> Time -> [MachineState] -> [Operation]
-                         -> ([MachineState], Queue)
-runAlgorithmWithRestarts alg t mops ops = (mopsAfterResets, q)
+restartful :: QueueAlgorithm -> Time -> [MachineState] -> [Operation]
+           -> ([MachineState], Queue)
+restartful alg t mops ops = (mopsAfterResets, q)
   where
     mopsAfterResets = map resetMachineIfNeeded mops
     resetMachineIfNeeded (m, opt) = case opt of
