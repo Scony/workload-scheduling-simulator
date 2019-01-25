@@ -3,6 +3,7 @@ module QueueAlgorithmsTests
   ) where
 
 import Data.List (sortBy)
+import Data.Maybe (fromMaybe)
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -12,6 +13,11 @@ import Operation
 import Machine
 import Assignment
 import Job
+
+qAlgorithmByName :: String -> QueueAlgorithms.QueueAlgorithm
+qAlgorithmByName name = fromMaybe (error "algorithm not found") (QueueAlgorithms.lookupByName name)
+
+so = qAlgorithmByName "so"
 
 queueAlgorithmsTests :: TestTree
 queueAlgorithmsTests = testGroup "QueueAlgotithms tests" [dummyTest

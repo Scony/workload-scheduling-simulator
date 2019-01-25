@@ -70,7 +70,7 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation) = do
               approxJobPerfectFlow j = head $ Solution.costs [j] solution Solution.flow
                 where solution = QAlgorithms.run runner' algorithm' [j] operations' machines
                       runner' = QAlgorithms.restartless
-                      algorithm' = QAlgorithms.sjlo
+                      algorithm' = qAlgorithmByName "sjlo"
                       operations' = [o | o <- operations, uuid j == parent o]
 
   let runner = if restarts then QAlgorithms.restartful else QAlgorithms.restartless
@@ -135,7 +135,8 @@ main' (Algdet algorithmName machinesNum) = do
         where approxJobAlgDet j = fromIntegral (fst $ jobUnbiasedFlow j)
                                   / fromIntegral (fst $ approxJobPerfectFlow j)
               approxJobPerfectFlow j = head $ Solution.costs [j] solution Solution.flow
-                where solution = QAlgorithms.run runner' QAlgorithms.sjlo [j] operations' machines
+                where solution = QAlgorithms.run runner' algorithm' [j] operations' machines
+                      algorithm' = qAlgorithmByName "sjlo"
                       operations' = [o | o <- operations, uuid j == parent o]
               jobUnbiasedFlow j = head $ Solution.costs [j] solution Solution.flow
                 where solution = QAlgorithms.run runner' algorithm [j] operations' machines

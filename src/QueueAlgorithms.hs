@@ -1,6 +1,6 @@
 module QueueAlgorithms
   ( assignInTimeFrame, run, lookupByName, restartless, restartful
-  , so, lo, fifo, lifo, sjlo, sjso, ljso, ljlo, rrso, rrlo, sjmd, sjmdr, md, mdr
+  , sjmd
   , QueueAlgorithm
   ) where
 
@@ -16,59 +16,60 @@ import Assignment (Assignment (Assignment))
 type Queue = [Operation]
 type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
-type QueueAlgorithm = [Operation] -> Queue
+type QueueAlgorithm = [MachineState] -> [Operation] -> Queue
 type RestartPolicy = QueueAlgorithm -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
 
 lookupByName :: String -> Maybe QueueAlgorithm
 lookupByName name = case name of
-  "so" -> Just so
-  "lo" -> Just lo
-  "fifo" -> Just fifo
-  "lifo" -> Just lifo
-  "sjlo" -> Just sjlo
-  "sjso" -> Just sjso
-  "ljso" -> Just ljso
-  "ljlo" -> Just ljlo
-  "rrso" -> Just rrso
-  "rrlo" -> Just rrlo
-  "sjmd" -> Just sjmd
-  "sjmdr" -> Just sjmdr
-  "md" -> Just md
-  "mdr" -> Just mdr
+  "so" -> Just (adjust so)
+  "lo" -> Just (adjust lo)
+  "fifo" -> Just (adjust fifo)
+  "lifo" -> Just (adjust lifo)
+  "sjlo" -> Just (adjust sjlo)
+  "sjso" -> Just (adjust sjso)
+  "ljso" -> Just (adjust ljso)
+  "ljlo" -> Just (adjust ljlo)
+  "rrso" -> Just (adjust rrso)
+  "rrlo" -> Just (adjust rrlo)
+  "sjmd" -> Just (adjust sjmd)
+  "sjmdr" -> Just (adjust sjmdr)
+  "md" -> Just (adjust md)
+  "mdr" -> Just (adjust mdr)
   _ -> Nothing
+  where adjust alg _ = alg
 
-so :: QueueAlgorithm
+so :: [Operation] -> Queue
 so = sortBy (\l r -> compare (duration l) (duration r))
 
-lo :: QueueAlgorithm
+lo :: [Operation] -> Queue
 lo = reverse . so
 
-fifo :: QueueAlgorithm
+fifo :: [Operation] -> Queue
 fifo ops = ops
 
-lifo :: QueueAlgorithm
+lifo :: [Operation] -> Queue
 lifo = reverse . fifo
 
-sjx :: QueueAlgorithm -> [Operation] -> Queue
+sjx :: ([Operation] -> Queue) -> [Operation] -> Queue
 sjx opAlg ops = concatMap snd $ sortBy jCmp dOps
   where dOps = map (\(_, ops') -> (sum $ map duration ops', opAlg ops')) jOps
         jCmp l r = compare (fst l) (fst r)           -- sj
         jOps = Map.toList
                $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
 
-sjlo :: QueueAlgorithm
+sjlo :: [Operation] -> Queue
 sjlo = sjx lo
 
-sjso :: QueueAlgorithm
+sjso :: [Operation] -> Queue
 sjso = sjx so
 
-ljso :: QueueAlgorithm
+ljso :: [Operation] -> Queue
 ljso = reverse . sjlo
 
-ljlo :: QueueAlgorithm
+ljlo :: [Operation] -> Queue
 ljlo = reverse . sjso
 
-md :: QueueAlgorithm
+md :: [Operation] -> Queue
 md ops = (map snd
           . sortBy (\l r -> compare (fst l) (fst r))
           . map (\(ix, o) -> (abs(ix - midIx), o))
@@ -77,25 +78,27 @@ md ops = (map snd
           ops
   where midIx = floor $ fromIntegral (length ops) / 2 :: Int
 
-mdr :: QueueAlgorithm
+mdr :: [Operation] -> Queue
 mdr = reverse . md
 
-sjmd :: QueueAlgorithm
+sjmd :: [Operation] -> Queue
 sjmd = sjx md
 
-sjmdr :: QueueAlgorithm
+sjmdr :: [Operation] -> Queue
 sjmdr = sjx mdr
 
-rrx :: QueueAlgorithm -> [Operation] -> Queue
+-- TODO: sjtx, sjtlo etc. (t - total)
+
+rrx :: ([Operation] -> Queue) -> [Operation] -> Queue
 rrx opAlg ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concatMap (zip [1..]) orderedOpss
   where orderedOpss = map opAlg opss
         opss = map snd $ Map.toList
                $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
 
-rrso :: QueueAlgorithm
+rrso :: [Operation] -> Queue
 rrso = rrx so
 
-rrlo :: QueueAlgorithm
+rrlo :: [Operation] -> Queue
 rrlo = rrx lo
 
 run :: RestartPolicy -> QueueAlgorithm -> [Job] -> [Operation] -> [Machine]
@@ -124,7 +127,7 @@ run' restartPolicy alg t jops mops q = as ++ run' restartPolicy alg newT newJops
 
 restartless :: QueueAlgorithm -> Time -> [MachineState] -> [Operation]
             -> ([MachineState], Queue)
-restartless algorithm _ mops ops = (mops, algorithm ops)
+restartless algorithm _ mops ops = (mops, algorithm mops ops)
 
 restartful :: QueueAlgorithm -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
@@ -138,12 +141,12 @@ restartful alg t mops ops = (mopsAfterResets, q)
     opsToReset = [unFakeOp o | o <- q', Operation.uuid o < 0]
     q' = filter (`notElem` resetFreeOpsAfterStage2) opsStage2
     resetFreeOpsAfterStage2 = [o | o <- take mNumForStage2 opsStage2, Operation.uuid o < 0]
-    opsStage2 = alg $ fakeOpsForStage2 ++ ops
+    opsStage2 = alg mops $ fakeOpsForStage2 ++ ops
     fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1) fakeOpsForStage2'
     fakeOpsForStage2' = [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
     mNumForStage2 = mNum - length resetFreeOpsAfterStage1
     resetFreeOpsAfterStage1 = [o | o <- take mNum opsStage1, Operation.uuid o < 0]
-    opsStage1 = alg $ fakeOps ++ ops
+    opsStage1 = alg mops $ fakeOps ++ ops
     fakeOps = [fakeOp o (finishTime-t) | (_, Just (o, finishTime)) <- mops]
     fakeOp (Operation p u k o _ c) fakeD = Operation p (-u) k o fakeD c
     unFakeOp (Operation p u k o d c) = Operation p (-u) k o d c
