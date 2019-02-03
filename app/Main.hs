@@ -11,13 +11,14 @@ import Options.Generic (ParseRecord, Generic, getRecord)
 
 import Input (parseInstanceV2)
 import qualified OfflineAlgorithms
-import Machine (ordinaryMachines)
+import Machine (ordinaryMachines, uuid)
 import qualified Solution
 import Schedule (calculateSolution)
 import qualified QueueAlgorithms as QAlgorithms
 import Job (arrival, uuid)
 import Validator (validateSolution)
-import Operation (parent)
+import Operation (parent, uuid)
+import Assignment (finish, operation, machine)
 
 replace a b = map (\x -> if x == a then b else x)
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
@@ -28,6 +29,7 @@ data Arguments
            , costfun :: String
            , restarts :: Bool
            , novalid :: Bool
+           , output :: String
            }                  -- running online algorithms
   | Offline String Int String -- running offline algorithms
   | Algdet String Int         -- approximated algorithm deteriorations
@@ -42,7 +44,7 @@ main = do
 
 main' :: Arguments -> IO ()
 
-main' (Online algorithmName machinesNum costFunction restarts noValidation) = do
+main' (Online algorithmName machinesNum costFunction restarts noValidation outputKind) = do
   stdin <- getContents
 
   let machines = ordinaryMachines machinesNum
@@ -71,17 +73,24 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation) = do
                 where solution = QAlgorithms.run runner' algorithm' [j] operations' machines
                       runner' = QAlgorithms.restartless
                       algorithm' = qAlgorithmByName "sjlo"
-                      operations' = [o | o <- operations, uuid j == parent o]
+                      operations' = [o | o <- operations, Job.uuid j == parent o]
 
   let runner = if restarts then QAlgorithms.restartful else QAlgorithms.restartless
   let validator js ops as = if noValidation then as else validateSolution js ops as
-  let queueAlgorithm alg = Solution.costs jobs solution costFun
-        where solution = validator jobs operations
-                         $ QAlgorithms.run runner alg jobs operations machines
-  let cjsInOrder = sortBy (\(_, j1) (_, j2) -> compare (arrival j1) (arrival j2))
+  let solution alg = validator jobs operations
+                     $ QAlgorithms.run runner alg jobs operations machines
+  let queueAlgorithm alg = Solution.costs jobs (solution alg) costFun
   let jobCosts cjs = mapM_ (\(c, _) -> print c) (cjsInOrder cjs)
+        where cjsInOrder = sortBy (\(_, j1) (_, j2) -> compare (arrival j1) (arrival j2))
 
-  jobCosts $ queueAlgorithm algorithm
+  case outputKind of
+    "jcosts" -> jobCosts $ queueAlgorithm algorithm
+    "opfins" -> mapM_ printer $ solution algorithm
+      where printer a = putStrLn $
+                        (show $ finish a) ++ " " ++
+                        (show $ Operation.uuid $ operation a) ++ " " ++
+                        (show $ Machine.uuid $ machine a)
+    _ -> error "unknown output type"
 
 main' (Offline algorithm machinesNum costFunction) = do
   stdin <- getContents
@@ -137,10 +146,10 @@ main' (Algdet algorithmName machinesNum) = do
               approxJobPerfectFlow j = head $ Solution.costs [j] solution Solution.flow
                 where solution = QAlgorithms.run runner' algorithm' [j] operations' machines
                       algorithm' = qAlgorithmByName "sjlo"
-                      operations' = [o | o <- operations, uuid j == parent o]
+                      operations' = [o | o <- operations, Job.uuid j == parent o]
               jobUnbiasedFlow j = head $ Solution.costs [j] solution Solution.flow
                 where solution = QAlgorithms.run runner' algorithm [j] operations' machines
-                      operations' = [o | o <- operations, uuid j == parent o]
+                      operations' = [o | o <- operations, Job.uuid j == parent o]
               runner' = QAlgorithms.restartless
 
   mapM_ print approxJobAlgDets
