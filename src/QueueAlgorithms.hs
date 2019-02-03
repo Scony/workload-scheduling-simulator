@@ -5,10 +5,11 @@ module QueueAlgorithms
   ) where
 
 import Data.List (sortBy)
-import qualified Data.IntMap.Strict as Map
-import Utils (assert)
+import qualified Data.IntMap.Strict as IMap
+import qualified Data.Map.Strict as Map
 
-import Job (Job, uuid, arrival)
+import Utils (assert, mapJs2Ops, mapJs2Ops')
+import Job (Job, arrival, uuid)
 import Operation (Operation (Operation), parent, duration, uuid)
 import Machine (Machine)
 import Assignment (Assignment (Assignment))
@@ -16,8 +17,11 @@ import Assignment (Assignment (Assignment))
 type Queue = [Operation]
 type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
-type QueueAlgorithm = [MachineState] -> [Operation] -> Queue
-type RestartPolicy = QueueAlgorithm -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
+type JOpsMap = Map.Map Job [Operation]
+type JOpssLeft = [(Job, [Operation])]
+type QueueAlgorithm = JOpsMap -> [Operation] -> Queue
+type RestartPolicy
+  = QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
 
 lookupByName :: String -> Maybe QueueAlgorithm
 lookupByName name = case name of
@@ -27,8 +31,8 @@ lookupByName name = case name of
   "lifo" -> Just (adjust lifo)
   "sjlo" -> Just (adjust sjlo)
   "sjso" -> Just (adjust sjso)
-  "ljso" -> Just (adjust ljso)
-  "ljlo" -> Just (adjust ljlo)
+  "ljso" -> Just ljso
+  "ljlo" -> Just ljlo
   "rrso" -> Just (adjust rrso)
   "rrlo" -> Just (adjust rrlo)
   "sjmd" -> Just (adjust sjmd)
@@ -51,11 +55,10 @@ lifo :: [Operation] -> Queue
 lifo = reverse . fifo
 
 sjx :: ([Operation] -> Queue) -> [Operation] -> Queue
-sjx opAlg ops = concatMap snd $ sortBy jCmp dOps
-  where dOps = map (\(_, ops') -> (sum $ map duration ops', opAlg ops')) jOps
-        jCmp l r = compare (fst l) (fst r)           -- sj
-        jOps = Map.toList
-               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
+sjx opAlg ops = concatMap snd $ sortBy sj dOps
+  where dOps = map (\(_, ops') -> (sum $ map duration ops', opAlg ops')) todoJOpss
+        sj l r = compare (fst l) (fst r)
+        todoJOpss = IMap.toList $ mapJs2Ops' ops
 
 sjlo :: [Operation] -> Queue
 sjlo = sjx lo
@@ -63,11 +66,22 @@ sjlo = sjx lo
 sjso :: [Operation] -> Queue
 sjso = sjx so
 
-ljso :: [Operation] -> Queue
-ljso = reverse . sjlo
+ljx :: ([Operation] -> Queue) -> JOpsMap -> [Operation] -> Queue
+ljx opAlg jOpsMap ops = concatMap snd $ sortBy lj dOpss
+  where dOpss = map (\(j, ops') -> (jDuration j, opAlg ops')) todoJOpss
+        lj l r = compare (fst r) (fst l)
+        jDuration j = IMap.lookup j jDurationsIMap
+        jDurationsIMap = IMap.fromList
+                         $ map (\(j, ops') -> (Job.uuid j, sum $ map duration ops'))
+                         $ Map.toList
+                         jOpsMap
+        todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-ljlo :: [Operation] -> Queue
-ljlo = reverse . sjso
+ljlo :: JOpsMap -> [Operation] -> Queue
+ljlo = ljx lo
+
+ljso :: JOpsMap -> [Operation] -> Queue
+ljso = ljx so
 
 md :: [Operation] -> Queue
 md ops = (map snd
@@ -87,13 +101,11 @@ sjmd = sjx md
 sjmdr :: [Operation] -> Queue
 sjmdr = sjx mdr
 
--- TODO: sjtx, sjtlo etc. (t - total)
-
 rrx :: ([Operation] -> Queue) -> [Operation] -> Queue
 rrx opAlg ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concatMap (zip [1..]) orderedOpss
   where orderedOpss = map opAlg opss
-        opss = map snd $ Map.toList
-               $ foldl (\acc o -> Map.insertWith (\_ os -> o:os) (parent o) [o] acc) Map.empty ops
+        opss = map snd $ IMap.toList
+               $ foldl (\acc o -> IMap.insertWith (\_ os -> o:os) (parent o) [o] acc) IMap.empty ops
 
 rrso :: [Operation] -> Queue
 rrso = rrx so
@@ -103,35 +115,34 @@ rrlo = rrx lo
 
 run :: RestartPolicy -> QueueAlgorithm -> [Job] -> [Operation] -> [Machine]
     -> [Assignment]
-run restartPolicy alg js ops ms = run' restartPolicy alg (-1) sortedJops emptyMachines []
+run restartPolicy alg js ops ms = run' restartPolicy alg jOpsMap (-1) sortedJOpss emptyMachines []
   where
-    sortedJops = sortBy (\(j1, _) (j2, _) -> compare (arrival j1) (arrival j2)) jOps
-    jOps = map (\(j, ops') -> (head [j' | j' <- js, Job.uuid j' == j], ops')) jOps'
-    jOps' = Map.toList $ foldl constructJOpsMap Map.empty ops
-    constructJOpsMap acc o = Map.insertWith (\_ ops' -> o:ops') (parent o) [o] acc
+    sortedJOpss = sortBy (\(j1, _) (j2, _) -> compare (arrival j1) (arrival j2)) $ Map.toList jOpsMap
+    jOpsMap = mapJs2Ops js ops
     emptyMachines = map (\x -> (x, Nothing)) ms
 
-run' :: RestartPolicy -> QueueAlgorithm -> Time -> [(Job, [Operation])] -> [MachineState] -> Queue
+run' :: RestartPolicy -> QueueAlgorithm -> JOpsMap -> Time -> JOpssLeft -> [MachineState] -> Queue
      -> [Assignment]
-run' _ _ t [] mops q = as
+run' _ _ _ t [] mops q = as
   where
     (_, _, as) = assignInTimeFrame mops q t maxBound
-run' restartPolicy alg t jops mops q = as ++ run' restartPolicy alg newT newJops newMops' newQ'
+run' restartPolicy alg jOpsMap t jOpssLeft mops q =
+  as ++ run' restartPolicy alg jOpsMap newT newJOpssLeft newMops' newQ'
   where
-    newJops = filter ((/=newT) . arrival . fst) jops
-    (newMops', newQ') = restartPolicy alg newT newMops opsToProcess
+    newJOpssLeft = filter ((/=newT) . arrival . fst) jOpssLeft
+    (newMops', newQ') = restartPolicy alg jOpsMap newT newMops opsToProcess
     opsToProcess = newQ ++ newOps
-    newOps = concat [ops | (j, ops) <- jops, arrival j == newT]
+    newOps = concat [ops | (j, ops) <- jOpssLeft, arrival j == newT]
     (newMops, newQ, as) = assignInTimeFrame mops q t newT
-    newT = (arrival . fst . head) jops
+    newT = (arrival . fst . head) jOpssLeft
 
-restartless :: QueueAlgorithm -> Time -> [MachineState] -> [Operation]
+restartless :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
             -> ([MachineState], Queue)
-restartless algorithm _ mops ops = (mops, algorithm mops ops)
+restartless algorithm jOpsMap _ mops ops = (mops, algorithm jOpsMap ops)
 
-restartful :: QueueAlgorithm -> Time -> [MachineState] -> [Operation]
+restartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
-restartful alg t mops ops = (mopsAfterResets, q)
+restartful alg jOpsMap t mops ops = (mopsAfterResets, q)
   where
     mopsAfterResets = map resetMachineIfNeeded mops
     resetMachineIfNeeded (m, opt) = case opt of
@@ -141,12 +152,12 @@ restartful alg t mops ops = (mopsAfterResets, q)
     opsToReset = [unFakeOp o | o <- q', Operation.uuid o < 0]
     q' = filter (`notElem` resetFreeOpsAfterStage2) opsStage2
     resetFreeOpsAfterStage2 = [o | o <- take mNumForStage2 opsStage2, Operation.uuid o < 0]
-    opsStage2 = alg mops $ fakeOpsForStage2 ++ ops
+    opsStage2 = alg jOpsMap $ fakeOpsForStage2 ++ ops
     fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1) fakeOpsForStage2'
     fakeOpsForStage2' = [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
     mNumForStage2 = mNum - length resetFreeOpsAfterStage1
     resetFreeOpsAfterStage1 = [o | o <- take mNum opsStage1, Operation.uuid o < 0]
-    opsStage1 = alg mops $ fakeOps ++ ops
+    opsStage1 = alg jOpsMap $ fakeOps ++ ops
     fakeOps = [fakeOp o (finishTime-t) | (_, Just (o, finishTime)) <- mops]
     fakeOp (Operation p u k o _ c) fakeD = Operation p (-u) k o fakeD c
     unFakeOp (Operation p u k o d c) = Operation p (-u) k o d c

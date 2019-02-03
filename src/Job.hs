@@ -14,3 +14,6 @@ instance Read Job where
 
 instance Eq Job where
   Job a _ _ == Job b _ _ = a == b
+
+instance Ord Job where
+  Job a _ _ `compare` Job b _ _ = a `compare` b
