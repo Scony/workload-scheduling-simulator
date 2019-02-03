@@ -22,5 +22,5 @@ mapJs2Ops js ops = Map.fromList jOpss
         jOpss' = IMap.toList $ mapJs2Ops' ops
 
 mapJs2Ops' :: [Operation] -> IMap.IntMap [Operation]
-mapJs2Ops' ops = foldl constructJOpsIMap IMap.empty ops
+mapJs2Ops' = foldl constructJOpsIMap IMap.empty
   where constructJOpsIMap acc o = IMap.insertWith (\_ ops' -> o:ops') (parent o) [o] acc
