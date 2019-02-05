@@ -39,6 +39,10 @@ lookupByName name = case name of
   "sjmdr" -> Just (adjust sjmdr)
   "md" -> Just (adjust md)
   "mdr" -> Just (adjust mdr)
+  "smjlo" -> Just (adjust smjlo)
+  "smjso" -> Just (adjust smjso)
+  "lmjlo" -> Just (adjust lmjlo)
+  "lmjso" -> Just (adjust lmjso)
   _ -> Nothing
   where adjust alg _ = alg
 
@@ -54,11 +58,14 @@ fifo ops = ops
 lifo :: [Operation] -> Queue
 lifo = reverse . fifo
 
-sjx :: ([Operation] -> Queue) -> [Operation] -> Queue
-sjx opAlg ops = concatMap snd $ sortBy sj dOps
-  where dOps = map (\(_, ops') -> (sum $ map duration ops', opAlg ops')) todoJOpss
+xjx :: ([Int] -> Int) -> ([Operation] -> Queue) -> [Operation] -> Queue
+xjx criterion opAlg ops = concatMap snd $ sortBy sj dOps
+  where dOps = map (\(_, ops') -> (criterion $ map duration ops', opAlg ops')) todoJOpss
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
+
+sjx :: ([Operation] -> Queue) -> [Operation] -> Queue
+sjx = xjx sum
 
 sjlo :: [Operation] -> Queue
 sjlo = sjx lo
@@ -82,6 +89,21 @@ ljlo = ljx lo
 
 ljso :: JOpsMap -> [Operation] -> Queue
 ljso = ljx so
+
+smjx :: ([Operation] -> Queue) -> [Operation] -> Queue
+smjx = xjx maximum
+
+smjlo :: [Operation] -> Queue
+smjlo = smjx lo
+
+smjso :: [Operation] -> Queue
+smjso = smjx so
+
+lmjlo :: [Operation] -> Queue
+lmjlo = reverse . smjso
+
+lmjso :: [Operation] -> Queue
+lmjso = reverse . smjlo
 
 md :: [Operation] -> Queue
 md ops = (map snd
