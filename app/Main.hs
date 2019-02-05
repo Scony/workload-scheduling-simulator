@@ -59,6 +59,7 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation outpu
   hPutStrLn stderr $ "> cost function: " ++ costFunction
   hPutStrLn stderr $ "> restarts: " ++ show restarts
   hPutStrLn stderr $ "> validation: " ++ show (not noValidation)
+  hPutStrLn stderr $ "> output: " ++ outputKind
 
   let algorithm = qAlgorithmByName algorithmName
   let costFun a b = case costFunction of
@@ -87,9 +88,9 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation outpu
     "jcosts" -> jobCosts $ queueAlgorithm algorithm
     "opfins" -> mapM_ printer $ solution algorithm
       where printer a = putStrLn $
-                        (show $ finish a) ++ " " ++
-                        (show $ Operation.uuid $ operation a) ++ " " ++
-                        (show $ Machine.uuid $ machine a)
+                        show (finish a) ++ " " ++
+                        show (Operation.uuid $ operation a) ++ " " ++
+                        show (Machine.uuid $ machine a)
     _ -> error "unknown output type"
 
 main' (Offline algorithm machinesNum costFunction) = do
