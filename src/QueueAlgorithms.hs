@@ -13,13 +13,14 @@ import Job (Job, arrival, uuid)
 import Operation (Operation (Operation), parent, duration, uuid)
 import Machine (Machine)
 import Assignment (Assignment (Assignment))
+import Solution (totalFlow)
 
 type Queue = [Operation]
 type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
 type JOpsMap = Map.Map Job [Operation]
 type JOpssLeft = [(Job, [Operation])]
-type QueueAlgorithm = JOpsMap -> [Operation] -> Queue
+type QueueAlgorithm = Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
 type RestartPolicy
   = QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
 
@@ -31,8 +32,8 @@ lookupByName name = case name of
   "lifo" -> Just (adjust lifo)
   "sjlo" -> Just (adjust sjlo)
   "sjso" -> Just (adjust sjso)
-  "ljso" -> Just ljso
-  "ljlo" -> Just ljlo
+  "ljso" -> Just (adjust' ljso)
+  "ljlo" -> Just (adjust' ljlo)
   "rrso" -> Just (adjust rrso)
   "rrlo" -> Just (adjust rrlo)
   "sjmd" -> Just (adjust sjmd)
@@ -43,8 +44,11 @@ lookupByName name = case name of
   "smjso" -> Just (adjust smjso)
   "lmjlo" -> Just (adjust lmjlo)
   "lmjso" -> Just (adjust lmjso)
+  "sjlo1m" -> Just sjlo1m
+  "sjso1m" -> Just sjso1m
   _ -> Nothing
-  where adjust alg _ = alg
+  where adjust alg _ _ _ = alg
+        adjust' alg _ _ = alg
 
 so :: [Operation] -> Queue
 so = sortBy (\l r -> compare (duration l) (duration r))
@@ -105,6 +109,28 @@ lmjlo = reverse . smjso
 lmjso :: [Operation] -> Queue
 lmjso = reverse . smjlo
 
+-- TODO: pass cost function
+sjx1m :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
+      -> Queue
+sjx1m opAlg t mops jOpsMap ops = if queue1mCost < queue0mCost then queue1m else queue0m
+  where queue1mCost = totalFlow jobs queue1mAs
+        (_, _, queue1mAs) = assignInTimeFrame mops queue1m t maxBound
+        queue0mCost = totalFlow jobs queue0mAs
+        (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
+        jobs = map fst $ Map.toList jOpsMap
+        queue1m = concatMap opAlg $ (concat $ take 2 queue) : drop 2 queue
+        queue0m = concatMap opAlg queue
+        queue = map snd $ sortBy sj dOps
+        dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
+        sj l r = compare (fst l) (fst r)
+        todoJOpss = IMap.toList $ mapJs2Ops' ops
+
+sjlo1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjlo1m = sjx1m lo
+
+sjso1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjso1m = sjx1m so
+
 md :: [Operation] -> Queue
 md ops = (map snd
           . sortBy (\l r -> compare (fst l) (fst r))
@@ -160,7 +186,7 @@ run' restartPolicy alg jOpsMap t jOpssLeft mops q =
 
 restartless :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
             -> ([MachineState], Queue)
-restartless algorithm jOpsMap _ mops ops = (mops, algorithm jOpsMap ops)
+restartless algorithm jOpsMap t mops ops = (mops, algorithm t mops jOpsMap ops)
 
 restartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
@@ -174,12 +200,12 @@ restartful alg jOpsMap t mops ops = (mopsAfterResets, q)
     opsToReset = [unFakeOp o | o <- q', Operation.uuid o < 0]
     q' = filter (`notElem` resetFreeOpsAfterStage2) opsStage2
     resetFreeOpsAfterStage2 = [o | o <- take mNumForStage2 opsStage2, Operation.uuid o < 0]
-    opsStage2 = alg jOpsMap $ fakeOpsForStage2 ++ ops
+    opsStage2 = alg t mops jOpsMap $ fakeOpsForStage2 ++ ops
     fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1) fakeOpsForStage2'
     fakeOpsForStage2' = [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
     mNumForStage2 = mNum - length resetFreeOpsAfterStage1
     resetFreeOpsAfterStage1 = [o | o <- take mNum opsStage1, Operation.uuid o < 0]
-    opsStage1 = alg jOpsMap $ fakeOps ++ ops
+    opsStage1 = alg t mops jOpsMap $ fakeOps ++ ops
     fakeOps = [fakeOp o (finishTime-t) | (_, Just (o, finishTime)) <- mops]
     fakeOp (Operation p u k o _ c) fakeD = Operation p (-u) k o fakeD c
     unFakeOp (Operation p u k o d c) = Operation p (-u) k o d c

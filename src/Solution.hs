@@ -3,11 +3,7 @@ module Solution
   , costs
   , totalFlow
   , averageFlow
-  , mStretch
-  , tStretch
-  , wStretch
-  , pStretch
-  , flow
+  , mStretch, tStretch, wStretch, pStretch, flow
   ) where
 
 import qualified Data.IntMap.Strict as Map
