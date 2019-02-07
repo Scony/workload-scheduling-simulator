@@ -190,8 +190,18 @@ restartless algorithm jOpsMap t mops ops = (mops, algorithm t mops jOpsMap ops)
 
 restartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
-restartful alg jOpsMap t mops ops = (mopsAfterResets, q)
+restartful alg jOpsMap t mops ops = if costWORestarts < costWRestarts
+                                    then outcomeWORestarts
+                                    else outcomeWRestarts
   where
+    outcomeWORestarts = (mops, qWORestarts)
+    costWORestarts = totalFlow jobs asWORestarts
+    (_, _, asWORestarts) = assignInTimeFrame mops qWORestarts t maxBound
+    qWORestarts = alg t mops jOpsMap ops
+    outcomeWRestarts = (mopsAfterResets, q)
+    costWRestarts = totalFlow jobs asWRestarts
+    (_, _, asWRestarts) = assignInTimeFrame mopsAfterResets q t maxBound
+    jobs = map fst $ Map.toList jOpsMap
     mopsAfterResets = map resetMachineIfNeeded mops
     resetMachineIfNeeded (m, opt) = case opt of
       Just (o, _) -> if o `elem` opsToReset then (m, Nothing) else (m, opt)
@@ -200,15 +210,21 @@ restartful alg jOpsMap t mops ops = (mopsAfterResets, q)
     opsToReset = [unFakeOp o | o <- q', Operation.uuid o < 0]
     q' = filter (`notElem` resetFreeOpsAfterStage2) opsStage2
     resetFreeOpsAfterStage2 = [o | o <- take mNumForStage2 opsStage2, Operation.uuid o < 0]
-    opsStage2 = alg t mops jOpsMap $ fakeOpsForStage2 ++ ops
-    fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1) fakeOpsForStage2'
-    fakeOpsForStage2' = [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
+    opsStage2 = alg t mopsForStage2 jOpsMap $ fakeOpsForStage2 ++ ops
+    fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1)
+                       $ [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
     mNumForStage2 = mNum - length resetFreeOpsAfterStage1
+    mopsForStage2 = map resetMachineIfNeeded' mops
+    resetMachineIfNeeded' (m, opt) = case opt of
+      Just (o, _) -> if o `elem` resetFreeOpsAfterStage1' then (m, opt) else (m, Nothing)
+      Nothing -> (m, opt)
+    resetFreeOpsAfterStage1' = map unFakeOp resetFreeOpsAfterStage1
     resetFreeOpsAfterStage1 = [o | o <- take mNum opsStage1, Operation.uuid o < 0]
-    opsStage1 = alg t mops jOpsMap $ fakeOps ++ ops
+    opsStage1 = alg t mopsForStage1 jOpsMap $ fakeOps ++ ops
+    mopsForStage1 = map (\(m, _) -> (m, Nothing)) mops
     fakeOps = [fakeOp o (finishTime-t) | (_, Just (o, finishTime)) <- mops]
-    fakeOp (Operation p u k o _ c) fakeD = Operation p (-u) k o fakeD c
-    unFakeOp (Operation p u k o d c) = Operation p (-u) k o d c
+    fakeOp (Operation p u k o _ c) fakeD = Operation p (-u-1) k o fakeD c
+    unFakeOp (Operation p u k o d c) = Operation p (-u-1) k o d c
     mNum = length mops
 
 assignInTimeFrame :: [(Machine, Maybe (Operation, Time))] -> Queue -> Time -> Time

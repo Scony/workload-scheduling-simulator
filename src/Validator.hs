@@ -20,7 +20,7 @@ validateSolution js ops as = validateSolutionSize ops
 
 validateSolutionSize :: [Operation] -> [Assignment] -> [Assignment]
 validateSolutionSize ops as = assert (length ops == length as) msg as
-  where msg = "Solution size is invalid"
+  where msg = "Solution size is invalid" ++ show (length ops, length as)
 
 validateOperationFinishes :: [Job] -> [Assignment] -> [Assignment]
 validateOperationFinishes js as = assert (all operationFinishIsValid as) msg as
