@@ -118,7 +118,7 @@ sjx1m opAlg t mops jOpsMap ops = if queue1mCost < queue0mCost then queue1m else 
         queue0mCost = totalFlow jobs queue0mAs
         (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
         jobs = map fst $ Map.toList jOpsMap
-        queue1m = concatMap opAlg $ (concat $ take 2 queue) : drop 2 queue
+        queue1m = concatMap opAlg $ concat (take 2 queue) : drop 2 queue
         queue0m = concatMap opAlg queue
         queue = map snd $ sortBy sj dOps
         dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
@@ -190,18 +190,27 @@ restartless algorithm jOpsMap t mops ops = (mops, algorithm t mops jOpsMap ops)
 
 restartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
-restartful alg jOpsMap t mops ops = if costWORestarts < costWRestarts
+restartful alg jOpsMap t mops ops = if qWORestarts == qWRestarts
                                     then outcomeWORestarts
-                                    else outcomeWRestarts
+                                    else betterOutcome
   where
-    outcomeWORestarts = (mops, qWORestarts)
+    betterOutcome = if costWORestarts < costWRestarts
+                    then outcomeWORestarts
+                    else outcomeWRestarts
     costWORestarts = totalFlow jobs asWORestarts
-    (_, _, asWORestarts) = assignInTimeFrame mops qWORestarts t maxBound
-    qWORestarts = alg t mops jOpsMap ops
-    outcomeWRestarts = (mopsAfterResets, q)
     costWRestarts = totalFlow jobs asWRestarts
-    (_, _, asWRestarts) = assignInTimeFrame mopsAfterResets q t maxBound
+    (_, _, asWORestarts) = assignInTimeFrame mops qWORestarts t maxBound
+    (_, _, asWRestarts) = assignInTimeFrame mopsAfterResets qWRestarts t maxBound
     jobs = map fst $ Map.toList jOpsMap
+    outcomeWORestarts = (mops, qWORestarts)
+    outcomeWRestarts = (mopsAfterResets, qWRestarts)
+    qWORestarts = alg t mops jOpsMap ops
+    (mopsAfterResets, qWRestarts) = dumbRestartful alg jOpsMap t mops ops
+
+dumbRestartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
+               -> ([MachineState], Queue)
+dumbRestartful alg jOpsMap t mops ops = (mopsAfterResets, q)
+  where
     mopsAfterResets = map resetMachineIfNeeded mops
     resetMachineIfNeeded (m, opt) = case opt of
       Just (o, _) -> if o `elem` opsToReset then (m, Nothing) else (m, opt)
@@ -212,7 +221,7 @@ restartful alg jOpsMap t mops ops = if costWORestarts < costWRestarts
     resetFreeOpsAfterStage2 = [o | o <- take mNumForStage2 opsStage2, Operation.uuid o < 0]
     opsStage2 = alg t mopsForStage2 jOpsMap $ fakeOpsForStage2 ++ ops
     fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1)
-                       $ [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
+                       [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
     mNumForStage2 = mNum - length resetFreeOpsAfterStage1
     mopsForStage2 = map resetMachineIfNeeded' mops
     resetMachineIfNeeded' (m, opt) = case opt of
