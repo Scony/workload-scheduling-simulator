@@ -114,7 +114,9 @@ lmjso = reverse . smjlo
 -- TODO: pass cost function
 sjx1m :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
       -> Queue
-sjx1m opAlg t mops jOpsMap ops = if queue1mCost < queue0mCost then queue1m else queue0m
+sjx1m opAlg t mops jOpsMap ops
+  | queue1mCost < queue0mCost = queue1m
+  | otherwise = queue0m
   where queue1mCost = totalFlow jobs queue1mAs
         (_, _, queue1mAs) = assignInTimeFrame mops queue1m t maxBound
         queue0mCost = totalFlow jobs queue0mAs
@@ -138,9 +140,9 @@ sjxmm :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operati
       -> Queue
 sjxmm opAlg t mops jOpsMap ops = concatMap opAlg $ mergeUntilWorse queue0mCost jQueue
   where jobs = map fst $ Map.toList jOpsMap
-        mergeUntilWorse bestKnownCost (j1:j2:js) = if newQueueCost <= bestKnownCost
-                                                   then mergeUntilWorse newQueueCost newJQueue
-                                                   else j1:j2:js
+        mergeUntilWorse bestKnownCost (j1:j2:js)
+          | newQueueCost <= bestKnownCost = mergeUntilWorse newQueueCost newJQueue
+          | otherwise = j1:j2:js
           where newQueueCost = totalFlow jobs newQueueAs
                 (_, _, newQueueAs) = assignInTimeFrame mops newQueue t maxBound
                 newQueue = concatMap opAlg newJQueue
@@ -219,13 +221,13 @@ restartless algorithm jOpsMap t mops ops = (mops, algorithm t mops jOpsMap ops)
 
 restartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
-restartful alg jOpsMap t mops ops = if qWORestarts == qWRestarts
-                                    then outcomeWORestarts
-                                    else betterOutcome
+restartful alg jOpsMap t mops ops
+  | qWORestarts == qWRestarts = outcomeWORestarts
+  | otherwise = betterOutcome
   where
-    betterOutcome = if costWORestarts < costWRestarts
-                    then outcomeWORestarts
-                    else outcomeWRestarts
+    betterOutcome
+      | costWORestarts < costWRestarts = outcomeWORestarts
+      | otherwise = outcomeWRestarts
     costWORestarts = totalFlow jobs asWORestarts
     costWRestarts = totalFlow jobs asWRestarts
     (_, _, asWORestarts) = assignInTimeFrame mops qWORestarts t maxBound
