@@ -46,6 +46,8 @@ lookupByName name = case name of
   "lmjso" -> Just (adjust lmjso)
   "sjlo1m" -> Just sjlo1m
   "sjso1m" -> Just sjso1m
+  "sjlomm" -> Just sjlomm
+  "sjsomm" -> Just sjsomm
   _ -> Nothing
   where adjust alg _ _ _ = alg
         adjust' alg _ _ = alg
@@ -130,6 +132,33 @@ sjlo1m = sjx1m lo
 
 sjso1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
 sjso1m = sjx1m so
+
+-- TODO: pass cost function
+sjxmm :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
+      -> Queue
+sjxmm opAlg t mops jOpsMap ops = concatMap opAlg $ mergeUntilWorse queue0mCost jQueue
+  where jobs = map fst $ Map.toList jOpsMap
+        mergeUntilWorse bestKnownCost (j1:j2:js) = if newQueueCost <= bestKnownCost
+                                                   then mergeUntilWorse newQueueCost newJQueue
+                                                   else j1:j2:js
+          where newQueueCost = totalFlow jobs newQueueAs
+                (_, _, newQueueAs) = assignInTimeFrame mops newQueue t maxBound
+                newQueue = concatMap opAlg newJQueue
+                newJQueue = (j1 ++ j2):js
+        mergeUntilWorse bestKnownCost x = x
+        queue0mCost = totalFlow jobs queue0mAs
+        (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
+        queue0m = concatMap opAlg jQueue
+        jQueue = map snd $ sortBy sj dOps
+        dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
+        sj l r = compare (fst l) (fst r)
+        todoJOpss = IMap.toList $ mapJs2Ops' ops
+
+sjlomm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjlomm = sjxmm lo
+
+sjsomm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjsomm = sjxmm so
 
 md :: [Operation] -> Queue
 md ops = (map snd
