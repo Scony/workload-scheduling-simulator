@@ -1,9 +1,7 @@
 module Machine
-  ( Machine(Machine, uuid)
+  ( Machine(Machine, uuid, capacity)
   , ordinaryMachines
   ) where
-
-ordinaryMachines n = [Machine x 1 | x <- [1..n]]
 
 data Machine = Machine { uuid :: Int
                        , capacity :: Int
@@ -11,3 +9,6 @@ data Machine = Machine { uuid :: Int
 
 instance Eq Machine where
   Machine a _ == Machine b _ = a == b
+
+ordinaryMachines :: Int -> [Machine]
+ordinaryMachines n = [Machine x 1 | x <- [1..n]]

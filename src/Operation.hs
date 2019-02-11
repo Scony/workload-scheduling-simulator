@@ -1,5 +1,5 @@
 module Operation
-  ( Operation(Operation, uuid, duration, parent)
+  ( Operation(Operation, uuid, duration, parent, kind, outcome, capacityReq)
   , parentOf
   ) where
 
@@ -21,7 +21,7 @@ instance Eq Operation where
   Operation _ a _ _ _ _ == Operation _ b _ _ _ _ = a == b
 
 parentOf :: [Job] -> Operation -> Job
-parentOf [] op = error "cannot find parent Job"
+parentOf [] _ = error "cannot find parent Job"
 parentOf (j:js) op
   | Job.uuid j == parent op = j
   | otherwise = parentOf js op

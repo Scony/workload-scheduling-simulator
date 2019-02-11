@@ -6,7 +6,7 @@ dependencies:
 library:
   source-dirs: src
   ghc-options:
-    - -Wunused-imports
+    - -Wall
     - -Werror
   dependencies:
     - extra

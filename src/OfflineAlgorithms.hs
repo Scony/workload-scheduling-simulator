@@ -13,7 +13,7 @@ import Schedule (Schedule, calculateSolution)
 import Assignment (Assignment)
 
 allInOne :: [Job] -> [Operation] -> [Machine] -> Schedule
-allInOne js ops ms = [(head ms, ops)]
+allInOne _ ops ms = [(head ms, ops)]
 
 opt :: (Ord a) => ([Job] -> [Assignment] -> a) -> [Job] -> [Operation] -> [Machine] -> Schedule
 opt fun js ops ms = bestSchedule minimum $ weightedSchedules fun js ops ms
@@ -47,8 +47,8 @@ partitions :: [a] -> [[[a]]]
 partitions [] = [[]]
 partitions (x:xs) = expand x $ partitions xs
   where expand :: a -> [[[a]]] -> [[[a]]]
-        expand x = concatMap (extend x)
+        expand y = concatMap (extend y)
 
         extend :: a -> [[a]] -> [[[a]]]
-        extend x [] = [[[x]]]
-        extend x (y:ys) = ((x:y):ys) : map (y:) (extend x ys)
+        extend y [] = [[[y]]]
+        extend y (z:zs) = ((y:z):zs) : map (z:) (extend y zs)

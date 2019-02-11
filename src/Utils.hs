@@ -14,7 +14,7 @@ slice :: Int -> Int -> [a] -> [a]
 slice a b = take (b - a) . drop a
 
 assert :: Bool -> String -> a -> a
-assert pred msg x = if pred then x else error msg
+assert p msg x = if p then x else error msg
 
 mapJs2Ops :: [Job] -> [Operation] -> Map.Map Job [Operation]
 mapJs2Ops js ops = Map.fromList jOpss

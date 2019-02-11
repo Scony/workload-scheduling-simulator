@@ -147,7 +147,7 @@ sjxmm opAlg t mops jOpsMap ops = concatMap opAlg $ mergeUntilWorse queue0mCost j
                 (_, _, newQueueAs) = assignInTimeFrame mops newQueue t maxBound
                 newQueue = concatMap opAlg newJQueue
                 newJQueue = (j1 ++ j2):js
-        mergeUntilWorse bestKnownCost x = x
+        mergeUntilWorse _ x = x
         queue0mCost = totalFlow jobs queue0mAs
         (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
         queue0m = concatMap opAlg jQueue
@@ -169,7 +169,7 @@ md ops = (map snd
           . zip [0..]
           . sortBy (\l r -> compare (duration l) (duration r)))
           ops
-  where midIx = floor $ fromIntegral (length ops) / 2 :: Int
+  where midIx = floor $ fromIntegral (length ops) / (2 :: Double) :: Int
 
 mdr :: [Operation] -> Queue
 mdr = reverse . md
@@ -181,7 +181,7 @@ sjmdr :: [Operation] -> Queue
 sjmdr = sjx mdr
 
 rrx :: ([Operation] -> Queue) -> [Operation] -> Queue
-rrx opAlg ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concatMap (zip [1..]) orderedOpss
+rrx opAlg ops = map snd $ sortBy (\a b -> compare (fst a) (fst b)) $ concatMap (zip ([1..] :: [Int])) orderedOpss
   where orderedOpss = map opAlg opss
         opss = map snd $ IMap.toList
                $ foldl (\acc o -> IMap.insertWith (\_ os -> o:os) (parent o) [o] acc) IMap.empty ops
@@ -269,7 +269,7 @@ dumbRestartful alg jOpsMap t mops ops = (mopsAfterResets, q)
 
 assignInTimeFrame :: [(Machine, Maybe (Operation, Time))] -> Queue -> Time -> Time
                   -> ([(Machine, Maybe (Operation, Time))], Queue, [Assignment])
-assignInTimeFrame mops q from until = assert workIsOngoing "WiO" assignInTimeFrame' mops q from until
+assignInTimeFrame mops q from til = assert workIsOngoing "WiO" assignInTimeFrame' mops q from til
   where
     workIsOngoing = all workIsOngoing' mops
     workIsOngoing' (_, op) = case op of
@@ -278,35 +278,36 @@ assignInTimeFrame mops q from until = assert workIsOngoing "WiO" assignInTimeFra
 
 assignInTimeFrame' :: [(Machine, Maybe (Operation, Time))] -> Queue -> Time -> Time
                    -> ([(Machine, Maybe (Operation, Time))], Queue, [Assignment])
-assignInTimeFrame' mops [] _ until = (newMops, [], as)
+assignInTimeFrame' mops [] _ til = (newMops, [], as)
   where
     newMops = map releaseMachine mops
     releaseMachine (m, op) = case op of
-      Just (op', t) -> if t <= until then (m, Nothing) else (m, Just (op', t))
+      Just (op', t) -> if t <= til then (m, Nothing) else (m, Just (op', t))
       Nothing -> (m, Nothing)
     as = foldl assign [] mops
     assign acc (m, op) = case op of
-      Just (op', t) -> if t <= until then acc ++ [Assignment t op' m] else acc
+      Just (op', t) -> if t <= til then acc ++ [Assignment t op' m] else acc
       Nothing -> acc
-assignInTimeFrame' mops (op:ops) from until
-  | freeMachineExists = assignInTimeFrame' (mopsWithFilledOne mops (Just op)) ops from until
+assignInTimeFrame' mops (op:ops) from til
+  | freeMachineExists = assignInTimeFrame' (mopsWithFilledOne mops (Just op)) ops from til
   | freeMachineCanExist = (newMops, newQ, newAs' ++ newAs)
   | releaseableMachinesExist = (mopsWithFreedOnes', op:ops, newAs'')
   | otherwise = (mops, op:ops, [])
   where
     freeMachineExists = any isMachineFree mops
-    isMachineFree (m, op') = case op' of
+    isMachineFree (_, op') = case op' of
       Just _ -> False
       Nothing -> True
+    mopsWithFilledOne [] (Just _) = error "mops missing"
     mopsWithFilledOne mops' Nothing = mops'
     mopsWithFilledOne ((m, op'):mops') (Just op'') = case op' of
       Just _ -> (m, op') : mopsWithFilledOne mops' (Just op'')
       Nothing -> (m, Just (op'', from + duration op'')):mopsWithFilledOne mops' Nothing
     freeMachineCanExist = any isMachineFreeable mops
     isMachineFreeable (_, op') = case op' of
-      Just (_, t) -> t < until
+      Just (_, t) -> t < til
       Nothing -> False
-    (newMops, newQ, newAs) = assignInTimeFrame' mopsWithFreedOnes (op:ops) newFrom until
+    (newMops, newQ, newAs) = assignInTimeFrame' mopsWithFreedOnes (op:ops) newFrom til
     (mopsWithFreedOnes, _, newAs') = assignInTimeFrame' mops [] (-1) newFrom
     newFrom = minimum $ foldl fetchT [] mops
     fetchT acc (_, op') = case op' of
@@ -314,6 +315,6 @@ assignInTimeFrame' mops (op:ops) from until
       Nothing -> acc
     releaseableMachinesExist = any isMachineReleasable mops
     isMachineReleasable (_, op') = case op' of
-      Just (_, t) -> t == until
+      Just (_, t) -> t == til
       Nothing -> False
-    (mopsWithFreedOnes', _, newAs'') = assignInTimeFrame' mops [] (-1) until
+    (mopsWithFreedOnes', _, newAs'') = assignInTimeFrame' mops [] (-1) til
