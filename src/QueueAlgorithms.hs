@@ -46,8 +46,12 @@ lookupByName name = case name of
   "lmjso" -> Just (adjust lmjso)
   "sjlo1m" -> Just sjlo1m
   "sjso1m" -> Just sjso1m
+  "sjmd1m" -> Just sjmd1m
+  "sjmdr1m" -> Just sjmdr1m
   "sjlomm" -> Just sjlomm
   "sjsomm" -> Just sjsomm
+  "sjmdmm" -> Just sjmdmm
+  "sjmdrmm" -> Just sjmdrmm
   _ -> Nothing
   where adjust alg _ _ _ = alg
         adjust' alg _ _ = alg
@@ -135,6 +139,12 @@ sjlo1m = sjx1m lo
 sjso1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
 sjso1m = sjx1m so
 
+sjmd1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmd1m = sjx1m md
+
+sjmdr1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmdr1m = sjx1m mdr
+
 -- TODO: pass cost function
 sjxmm :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
       -> Queue
@@ -161,6 +171,12 @@ sjlomm = sjxmm lo
 
 sjsomm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
 sjsomm = sjxmm so
+
+sjmdmm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmdmm = sjxmm md
+
+sjmdrmm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmdrmm = sjxmm mdr
 
 md :: [Operation] -> Queue
 md ops = (map snd
