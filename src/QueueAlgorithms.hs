@@ -52,6 +52,8 @@ lookupByName name = case name of
   "sjsomm" -> Just sjsomm
   "sjmdmm" -> Just sjmdmm
   "sjmdrmm" -> Just sjmdrmm
+  "sjlomsm" -> Just sjlomsm
+  "sjsomsm" -> Just sjsomsm
   _ -> Nothing
   where adjust alg _ _ _ = alg
         adjust' alg _ _ = alg
@@ -177,6 +179,49 @@ sjmdmm = sjxmm md
 
 sjmdrmm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
 sjmdrmm = sjxmm mdr
+
+-- TODO: pass cost function
+-- TODO: redesign & speedup
+sjxmsm :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
+       -> Queue
+sjxmsm opAlg t mops jOpsMap ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
+  where jobs = map fst $ Map.toList jOpsMap
+        mergeUntilWorse _ _ [j] = [j]
+        mergeUntilWorse cnt bestKnownCost js
+          | cnt == 0 = js
+          | newQueueCost <= bestKnownCost = mergeUntilWorse (cnt - 1 :: Int) newQueueCost newJQueue
+          | otherwise = js
+          where newQueueCost = totalFlow jobs newQueueAs
+                (_, _, newQueueAs) = assignInTimeFrame mops newQueue t maxBound
+                newQueue = concat newJQueue
+                newJQueue = snd $ bestJQWithinStage [] js
+                bestJQWithinStage _ [] = undefined
+                bestJQWithinStage ljs [rj] = (myCost, myJQ)
+                  where myCost = totalFlow jobs myQAs
+                        (_, _, myQAs) = assignInTimeFrame mops myQ t maxBound
+                        myQ = concat myJQ
+                        myJQ = ljs ++ [rj]
+                bestJQWithinStage ljs (j1:j2:rjs)
+                  | nextCost < myCost = (nextCost, nextJQ)
+                  | otherwise = (myCost, myJQ)
+                  where myCost = totalFlow jobs myQAs
+                        (_, _, myQAs) = assignInTimeFrame mops myQ t maxBound
+                        myQ = concat myJQ
+                        myJQ = ljs ++ ((opAlg j1 ++ j2) : rjs)
+                        (nextCost, nextJQ) = bestJQWithinStage (ljs ++ [j1]) (j2 : rjs)
+        queue0mCost = totalFlow jobs queue0mAs
+        (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
+        queue0m = concat jQueue
+        jQueue = map (opAlg . snd) $ sortBy sj dOps
+        dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
+        sj l r = compare (fst l) (fst r)
+        todoJOpss = IMap.toList $ mapJs2Ops' ops
+
+sjlomsm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjlomsm = sjxmsm lo
+
+sjsomsm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjsomsm = sjxmsm so
 
 md :: [Operation] -> Queue
 md ops = (map snd
