@@ -6,6 +6,7 @@ module Main where
 import System.IO (hPutStrLn, stderr)
 import Data.List (sortBy)
 import Data.Maybe (fromMaybe)
+import qualified Data.Map.Strict as Map
 
 import Options.Generic (ParseRecord, Generic, getRecord)
 
@@ -19,6 +20,8 @@ import Job (arrival, uuid)
 import Validator (validateSolution)
 import Operation (parent, uuid)
 import Assignment (finish, operation, machine)
+import Utils (mapJs2Ops)
+import JobParameters (machineDemand)
 
 replace a b = map (\x -> if x == a then b else x)
 mkLines x = map (replace '_' ' ') $ words $ replace ' ' '_' x
@@ -33,6 +36,7 @@ data Arguments
            }                  -- running online algorithms
   | Offline String Int String -- running offline algorithms
   | Algdet String Int         -- approximated algorithm deteriorations
+  | MDemand                   -- each job's machine demand
   deriving (Generic, Show)
 
 instance ParseRecord Arguments
@@ -154,6 +158,20 @@ main' (Algdet algorithmName machinesNum) = do
               runner' = QAlgorithms.restartless
 
   mapM_ print approxJobAlgDets
+
+main' MDemand = do
+  stdin <- getContents
+
+  let (jobs, operations) = (parseInstanceV2 . mkLines) stdin
+  let jobsNum = length jobs
+  let operationsNum = length operations
+
+  hPutStrLn stderr $ "> jobs: " ++ show jobsNum
+  hPutStrLn stderr $ "> operations: " ++ show operationsNum
+
+  let jOpsMap = mapJs2Ops jobs operations
+
+  mapM_ print $ map (\(j, ops) -> (length ops, machineDemand (j, ops))) $ Map.toList jOpsMap
 
 qAlgorithmByName :: String -> QAlgorithms.QueueAlgorithm
 qAlgorithmByName name = fromMaybe (error "algorithm not found") (QAlgorithms.lookupByName name)
