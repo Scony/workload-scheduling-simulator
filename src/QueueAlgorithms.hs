@@ -8,7 +8,7 @@ import Data.List (sortBy)
 import qualified Data.IntMap.Strict as IMap
 import qualified Data.Map.Strict as Map
 
-import Utils (assert, mapJs2Ops, mapJs2Ops')
+import Utils (assert, mapJs2Ops, mapJs2Ops', trd)
 import Job (Job, arrival, uuid)
 import Operation (Operation (Operation), parent, duration, uuid)
 import Machine (Machine)
@@ -123,10 +123,12 @@ sjx1m :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operati
 sjx1m opAlg t mops jOpsMap ops
   | queue1mCost < queue0mCost = queue1m
   | otherwise = queue0m
-  where queue1mCost = totalFlow jobs queue1mAs
-        (_, _, queue1mAs) = assignInTimeFrame mops queue1m t maxBound
-        queue0mCost = totalFlow jobs queue0mAs
-        (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
+  where queue1mCost = totalFlow jobs
+                      $ trd
+                      $ assignInTimeFrame mops queue1m t maxBound
+        queue0mCost = totalFlow jobs
+                      $ trd
+                      $ assignInTimeFrame mops queue0m t maxBound
         jobs = map fst $ Map.toList jOpsMap
         queue1m = concatMap opAlg $ concat (take 2 queue) : drop 2 queue
         queue0m = concatMap opAlg queue
@@ -155,13 +157,15 @@ sjxmm opAlg t mops jOpsMap ops = concatMap opAlg $ mergeUntilWorse queue0mCost j
         mergeUntilWorse bestKnownCost (j1:j2:js)
           | newQueueCost <= bestKnownCost = mergeUntilWorse newQueueCost newJQueue
           | otherwise = j1:j2:js
-          where newQueueCost = totalFlow jobs newQueueAs
-                (_, _, newQueueAs) = assignInTimeFrame mops newQueue t maxBound
+          where newQueueCost = totalFlow jobs
+                               $ trd
+                               $ assignInTimeFrame mops newQueue t maxBound
                 newQueue = concatMap opAlg newJQueue
                 newJQueue = (j1 ++ j2):js
         mergeUntilWorse _ x = x
-        queue0mCost = totalFlow jobs queue0mAs
-        (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
+        queue0mCost = totalFlow jobs
+                      $ trd
+                      $ assignInTimeFrame mops queue0m t maxBound
         queue0m = concatMap opAlg jQueue
         jQueue = map snd $ sortBy sj dOps
         dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
@@ -191,26 +195,30 @@ sjxmsm opAlg t mops jOpsMap ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
           | cnt == 0 = js
           | newQueueCost <= bestKnownCost = mergeUntilWorse (cnt - 1 :: Int) newQueueCost newJQueue
           | otherwise = js
-          where newQueueCost = totalFlow jobs newQueueAs
-                (_, _, newQueueAs) = assignInTimeFrame mops newQueue t maxBound
+          where newQueueCost = totalFlow jobs
+                               $ trd
+                               $ assignInTimeFrame mops newQueue t maxBound
                 newQueue = concat newJQueue
                 newJQueue = snd $ bestJQWithinStage [] js
                 bestJQWithinStage _ [] = undefined
                 bestJQWithinStage ljs [rj] = (myCost, myJQ)
-                  where myCost = totalFlow jobs myQAs
-                        (_, _, myQAs) = assignInTimeFrame mops myQ t maxBound
+                  where myCost = totalFlow jobs
+                                 $ trd
+                                 $ assignInTimeFrame mops myQ t maxBound
                         myQ = concat myJQ
                         myJQ = ljs ++ [rj]
                 bestJQWithinStage ljs (j1:j2:rjs)
                   | nextCost < myCost = (nextCost, nextJQ)
                   | otherwise = (myCost, myJQ)
-                  where myCost = totalFlow jobs myQAs
-                        (_, _, myQAs) = assignInTimeFrame mops myQ t maxBound
+                  where myCost = totalFlow jobs
+                                 $ trd
+                                 $ assignInTimeFrame mops myQ t maxBound
                         myQ = concat myJQ
                         myJQ = ljs ++ ((opAlg j1 ++ j2) : rjs)
                         (nextCost, nextJQ) = bestJQWithinStage (ljs ++ [j1]) (j2 : rjs)
-        queue0mCost = totalFlow jobs queue0mAs
-        (_, _, queue0mAs) = assignInTimeFrame mops queue0m t maxBound
+        queue0mCost = totalFlow jobs
+                      $ trd
+                      $ assignInTimeFrame mops queue0m t maxBound
         queue0m = concat jQueue
         jQueue = map (opAlg . snd) $ sortBy sj dOps
         dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
@@ -265,7 +273,7 @@ run' :: RestartPolicy -> QueueAlgorithm -> JOpsMap -> Time -> JOpssLeft -> [Mach
      -> [Assignment]
 run' _ _ _ t [] mops q = as
   where
-    (_, _, as) = assignInTimeFrame mops q t maxBound
+    as = trd $ assignInTimeFrame mops q t maxBound
 run' restartPolicy alg jOpsMap t jOpssLeft mops q =
   as ++ run' restartPolicy alg jOpsMap newT newJOpssLeft newMops' newQ'
   where
@@ -289,10 +297,12 @@ restartful alg jOpsMap t mops ops
     betterOutcome
       | costWORestarts < costWRestarts = outcomeWORestarts
       | otherwise = outcomeWRestarts
-    costWORestarts = totalFlow jobs asWORestarts
-    costWRestarts = totalFlow jobs asWRestarts
-    (_, _, asWORestarts) = assignInTimeFrame mops qWORestarts t maxBound
-    (_, _, asWRestarts) = assignInTimeFrame mopsAfterResets qWRestarts t maxBound
+    costWORestarts = totalFlow jobs
+                     $ trd
+                     $ assignInTimeFrame mops qWORestarts t maxBound
+    costWRestarts = totalFlow jobs
+                    $ trd
+                    $ assignInTimeFrame mopsAfterResets qWRestarts t maxBound
     jobs = map fst $ Map.toList jOpsMap
     outcomeWORestarts = (mops, qWORestarts)
     outcomeWRestarts = (mopsAfterResets, qWRestarts)
@@ -324,7 +334,7 @@ dumbRestartful alg jOpsMap t mops ops = (mopsAfterResets, q)
     opsStage1 = alg t mopsForStage1 jOpsMap $ fakeOps ++ ops
     mopsForStage1 = map (\(m, _) -> (m, Nothing)) mops
     fakeOps = [fakeOp o (finishTime-t) | (_, Just (o, finishTime)) <- mops]
-    fakeOp (Operation p u k o _ c) fakeD = Operation p (-u-1) k o fakeD c
+    fakeOp (Operation p u k o _ c) fakeD = Operation p (-u-1) k o fakeD c -- TODO: get rid of (-) hack
     unFakeOp (Operation p u k o d c) = Operation p (-u-1) k o d c
     mNum = length mops
 

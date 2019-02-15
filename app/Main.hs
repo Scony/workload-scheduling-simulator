@@ -171,7 +171,7 @@ main' MDemand = do
 
   let jOpsMap = mapJs2Ops jobs operations
 
-  mapM_ print $ map (\(j, ops) -> (length ops, machineDemand (j, ops))) $ Map.toList jOpsMap
+  mapM_ (print . (\(j, ops) -> (length ops, machineDemand (j, ops)))) $ Map.toList jOpsMap
 
 qAlgorithmByName :: String -> QAlgorithms.QueueAlgorithm
 qAlgorithmByName name = fromMaybe (error "algorithm not found") (QAlgorithms.lookupByName name)

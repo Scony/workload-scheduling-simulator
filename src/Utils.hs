@@ -1,5 +1,5 @@
 module Utils
-  ( slice
+  ( slice, trd
   , assert
   , mapJs2Ops, mapJs2Ops'
   ) where
@@ -12,6 +12,9 @@ import Operation (Operation, parent)
 
 slice :: Int -> Int -> [a] -> [a]
 slice a b = take (b - a) . drop a
+
+trd :: (a, b, c) -> c
+trd (_, _, c) = c
 
 assert :: Bool -> String -> a -> a
 assert p msg x = if p then x else error msg
