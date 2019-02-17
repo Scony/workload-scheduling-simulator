@@ -20,5 +20,5 @@ machineDemand (j, ops) = keepTFlowOnFewerMachines maxAllowedTFlow startingMachin
           | otherwise = machinesNum + 1
           where tflow = totalFlow [j]
                         $ QAlgorithms.run QAlgorithms.restartless algorithm [j] ops machines
-                algorithm = fromMaybe (error "algorithm not found") (QAlgorithms.lookupByName "sjlo")
+                algorithm = fromMaybe (error "algorithm not found") (QAlgorithms.queueAlgorithm "sjlo")
                 machines = ordinaryMachines machinesNum

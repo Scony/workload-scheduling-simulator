@@ -174,4 +174,4 @@ main' MDemand = do
   mapM_ (print . (\(j, ops) -> (length ops, machineDemand (j, ops)))) $ Map.toList jOpsMap
 
 qAlgorithmByName :: String -> QAlgorithms.QueueAlgorithm
-qAlgorithmByName name = fromMaybe (error "algorithm not found") (QAlgorithms.lookupByName name)
+qAlgorithmByName name = fromMaybe (error "algorithm not found") (QAlgorithms.queueAlgorithm name)

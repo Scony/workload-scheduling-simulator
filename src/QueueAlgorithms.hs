@@ -1,5 +1,5 @@
 module QueueAlgorithms
-  ( assignInTimeFrame, run, lookupByName, restartless, restartful
+  ( assignInTimeFrame, run, queueAlgorithm, restartless, restartful
   , sjmd
   , QueueAlgorithm
   ) where
@@ -24,8 +24,8 @@ type QueueAlgorithm = Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
 type RestartPolicy
   = QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
 
-lookupByName :: String -> Maybe QueueAlgorithm
-lookupByName name = case name of
+queueAlgorithm :: String -> Maybe QueueAlgorithm
+queueAlgorithm name = case name of
   "so" -> Just (adjust so)
   "lo" -> Just (adjust lo)
   "fifo" -> Just (adjust fifo)
