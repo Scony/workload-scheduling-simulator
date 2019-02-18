@@ -65,11 +65,6 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation outpu
   hPutStrLn stderr $ "> validation: " ++ show (not noValidation)
   hPutStrLn stderr $ "> output: " ++ outputKind
 
-  let algorithm = case QAlgorithms.queueAlgorithm algorithmName of
-        Just (QAlgorithms.ContextFree alg) -> alg
-        Just (QAlgorithms.JOpsMapSensitive alg) -> alg jOpsMap
-          where jOpsMap = mapJs2Ops jobs operations
-        Nothing -> error "algorithm not found"
   let costFun a b = case costFunction of
         "flow" -> fromIntegral $ Solution.flow a b
         "mstretch" -> Solution.mStretch a b
@@ -83,6 +78,14 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation outpu
                       runner' = QAlgorithms.restartless
                       algorithm' = qAlgorithmByName "sjlo"
                       operations' = [o | o <- operations, Job.uuid j == parent o]
+  let completeCostFun js as = Solution.total $ Solution.costs js as costFun
+
+  let algorithm = case QAlgorithms.queueAlgorithm algorithmName of
+        Just (QAlgorithms.ContextFree alg) -> alg
+        Just (QAlgorithms.JOpsMapSensitive alg) -> alg jOpsMap
+        Just (QAlgorithms.CfJomSensitive alg) -> alg completeCostFun jOpsMap
+        Nothing -> error "algorithm not found"
+        where jOpsMap = mapJs2Ops jobs operations
 
   let runner = if restarts then QAlgorithms.restartful else QAlgorithms.restartless
   let validator js ops as = if noValidation then as else validateSolution js ops as

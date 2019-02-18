@@ -1,7 +1,7 @@
 module QueueAlgorithms
   ( assignInTimeFrame, run, queueAlgorithm, restartless, restartful, contextFreeQueueAlgorithm
   , sjmd
-  , QueueAlgorithm, QueueAlgorithmVariant (ContextFree, JOpsMapSensitive)
+  , QueueAlgorithm, QueueAlgorithmVariant (ContextFree, JOpsMapSensitive, CfJomSensitive)
   ) where
 
 import Data.List (sortBy)
@@ -23,10 +23,12 @@ type JOpssLeft = [(Job, [Operation])]
 type QueueAlgorithm = Time -> [MachineState] -> [Operation] -> Queue
 type RestartPolicy
   = QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
+type CostFunction = [Job] -> [Assignment] -> Float
 
 data QueueAlgorithmVariant
   = ContextFree QueueAlgorithm
   | JOpsMapSensitive (JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
+  | CfJomSensitive (CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
 
 queueAlgorithm :: String -> Maybe QueueAlgorithmVariant
 queueAlgorithm name = case name of
@@ -48,16 +50,16 @@ queueAlgorithm name = case name of
   "smjso" -> Just (ContextFree (adjust smjso))
   "lmjlo" -> Just (ContextFree (adjust lmjlo))
   "lmjso" -> Just (ContextFree (adjust lmjso))
-  "sjlo1m" -> Just (JOpsMapSensitive sjlo1m)
-  "sjso1m" -> Just (JOpsMapSensitive sjso1m)
-  "sjmd1m" -> Just (JOpsMapSensitive sjmd1m)
-  "sjmdr1m" -> Just (JOpsMapSensitive sjmdr1m)
-  "sjlomm" -> Just (JOpsMapSensitive sjlomm)
-  "sjsomm" -> Just (JOpsMapSensitive sjsomm)
-  "sjmdmm" -> Just (JOpsMapSensitive sjmdmm)
-  "sjmdrmm" -> Just (JOpsMapSensitive sjmdrmm)
-  "sjlomsm" -> Just (JOpsMapSensitive sjlomsm)
-  "sjsomsm" -> Just (JOpsMapSensitive sjsomsm)
+  "sjlo1m" -> Just (CfJomSensitive sjlo1m)
+  "sjso1m" -> Just (CfJomSensitive sjso1m)
+  "sjmd1m" -> Just (CfJomSensitive sjmd1m)
+  "sjmdr1m" -> Just (CfJomSensitive sjmdr1m)
+  "sjlomm" -> Just (CfJomSensitive sjlomm)
+  "sjsomm" -> Just (CfJomSensitive sjsomm)
+  "sjmdmm" -> Just (CfJomSensitive sjmdmm)
+  "sjmdrmm" -> Just (CfJomSensitive sjmdrmm)
+  "sjlomsm" -> Just (CfJomSensitive sjlomsm)
+  "sjsomsm" -> Just (CfJomSensitive sjsomsm)
   _ -> Nothing
   where adjust alg _ _ = alg
         adjust' alg a _ _ b = alg a b
@@ -66,6 +68,7 @@ contextFreeQueueAlgorithm :: String -> Maybe QueueAlgorithm
 contextFreeQueueAlgorithm name = case (queueAlgorithm name) of
   Just (ContextFree a) -> Just a
   Just (JOpsMapSensitive _) -> Nothing
+  Just (CfJomSensitive _) -> Nothing
   Nothing -> Nothing
 
 so :: [Operation] -> Queue
@@ -127,16 +130,15 @@ lmjlo = reverse . smjso
 lmjso :: [Operation] -> Queue
 lmjso = reverse . smjlo
 
--- TODO: pass cost function
-sjx1m :: ([Operation] -> Queue) -> JOpsMap -> Time -> [MachineState] -> [Operation]
+sjx1m :: ([Operation] -> Queue) -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
       -> Queue
-sjx1m opAlg jOpsMap t mops ops
+sjx1m opAlg costFunction jOpsMap t mops ops
   | queue1mCost < queue0mCost = queue1m
   | otherwise = queue0m
-  where queue1mCost = totalFlow jobs
+  where queue1mCost = costFunction jobs
                       $ trd
                       $ assignInTimeFrame mops queue1m t maxBound
-        queue0mCost = totalFlow jobs
+        queue0mCost = costFunction jobs
                       $ trd
                       $ assignInTimeFrame mops queue0m t maxBound
         jobs = map fst $ Map.toList jOpsMap
@@ -147,33 +149,32 @@ sjx1m opAlg jOpsMap t mops ops
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-sjlo1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjlo1m :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlo1m = sjx1m lo
 
-sjso1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjso1m :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjso1m = sjx1m so
 
-sjmd1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjmd1m :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmd1m = sjx1m md
 
-sjmdr1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjmdr1m :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmdr1m = sjx1m mdr
 
--- TODO: pass cost function
-sjxmm :: ([Operation] -> Queue) -> JOpsMap -> Time -> [MachineState] -> [Operation]
+sjxmm :: ([Operation] -> Queue) -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
       -> Queue
-sjxmm opAlg jOpsMap t mops ops = concatMap opAlg $ mergeUntilWorse queue0mCost jQueue
+sjxmm opAlg costFunction jOpsMap t mops ops = concatMap opAlg $ mergeUntilWorse queue0mCost jQueue
   where jobs = map fst $ Map.toList jOpsMap
         mergeUntilWorse bestKnownCost (j1:j2:js)
           | newQueueCost <= bestKnownCost = mergeUntilWorse newQueueCost newJQueue
           | otherwise = j1:j2:js
-          where newQueueCost = totalFlow jobs
+          where newQueueCost = costFunction jobs
                                $ trd
                                $ assignInTimeFrame mops newQueue t maxBound
                 newQueue = concatMap opAlg newJQueue
                 newJQueue = (j1 ++ j2):js
         mergeUntilWorse _ x = x
-        queue0mCost = totalFlow jobs
+        queue0mCost = costFunction jobs
                       $ trd
                       $ assignInTimeFrame mops queue0m t maxBound
         queue0m = concatMap opAlg jQueue
@@ -182,37 +183,36 @@ sjxmm opAlg jOpsMap t mops ops = concatMap opAlg $ mergeUntilWorse queue0mCost j
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-sjlomm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjlomm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlomm = sjxmm lo
 
-sjsomm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjsomm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjsomm = sjxmm so
 
-sjmdmm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjmdmm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmdmm = sjxmm md
 
-sjmdrmm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjmdrmm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmdrmm = sjxmm mdr
 
--- TODO: pass cost function
 -- TODO: redesign & speedup
-sjxmsm :: ([Operation] -> Queue) -> JOpsMap -> Time -> [MachineState] -> [Operation]
+sjxmsm :: ([Operation] -> Queue) -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
        -> Queue
-sjxmsm opAlg jOpsMap t mops ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
+sjxmsm opAlg costFunction jOpsMap t mops ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
   where jobs = map fst $ Map.toList jOpsMap
         mergeUntilWorse _ _ [j] = [j]
         mergeUntilWorse cnt bestKnownCost js
           | cnt == 0 = js
           | newQueueCost <= bestKnownCost = mergeUntilWorse (cnt - 1 :: Int) newQueueCost newJQueue
           | otherwise = js
-          where newQueueCost = totalFlow jobs
+          where newQueueCost = costFunction jobs
                                $ trd
                                $ assignInTimeFrame mops newQueue t maxBound
                 newQueue = concat newJQueue
                 newJQueue = snd $ bestJQWithinStage [] js
                 bestJQWithinStage _ [] = undefined
                 bestJQWithinStage ljs [rj] = (myCost, myJQ)
-                  where myCost = totalFlow jobs
+                  where myCost = costFunction jobs
                                  $ trd
                                  $ assignInTimeFrame mops myQ t maxBound
                         myQ = concat myJQ
@@ -220,13 +220,13 @@ sjxmsm opAlg jOpsMap t mops ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
                 bestJQWithinStage ljs (j1:j2:rjs)
                   | nextCost < myCost = (nextCost, nextJQ)
                   | otherwise = (myCost, myJQ)
-                  where myCost = totalFlow jobs
+                  where myCost = costFunction jobs
                                  $ trd
                                  $ assignInTimeFrame mops myQ t maxBound
                         myQ = concat myJQ
                         myJQ = ljs ++ ((opAlg j1 ++ j2) : rjs)
                         (nextCost, nextJQ) = bestJQWithinStage (ljs ++ [j1]) (j2 : rjs)
-        queue0mCost = totalFlow jobs
+        queue0mCost = costFunction jobs
                       $ trd
                       $ assignInTimeFrame mops queue0m t maxBound
         queue0m = concat jQueue
@@ -235,10 +235,10 @@ sjxmsm opAlg jOpsMap t mops ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-sjlomsm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjlomsm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlomsm = sjxmsm lo
 
-sjsomsm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjsomsm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjsomsm = sjxmsm so
 
 md :: [Operation] -> Queue
@@ -298,6 +298,7 @@ restartless :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation
             -> ([MachineState], Queue)
 restartless algorithm _ t mops ops = (mops, algorithm t mops ops)
 
+-- TODO: pass cost function
 restartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
 restartful alg jOpsMap t mops ops

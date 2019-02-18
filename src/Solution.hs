@@ -1,6 +1,6 @@
 module Solution
   ( Solution
-  , costs
+  , costs, total
   , totalFlow
   , averageFlow
   , mStretch, tStretch, wStretch, pStretch, flow
