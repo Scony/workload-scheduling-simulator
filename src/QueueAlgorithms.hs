@@ -1,12 +1,13 @@
 module QueueAlgorithms
   ( assignInTimeFrame, run, queueAlgorithm, restartless, restartful, contextFreeQueueAlgorithm
   , sjmd
-  , QueueAlgorithm, QueueAlgorithmVariant (ContextFree, JOpsMapSensitive, CfJomSensitive)
+  , QueueAlgorithm, QueueAlgorithmVariant (ContextFree, JOpsMapSensitive, CfJomSensitive, MdmSensitive)
   ) where
 
 import Data.List (sortBy)
 import qualified Data.IntMap.Strict as IMap
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 
 import Utils (assert, mapJs2Ops, mapJs2Ops', trd)
 import Job (Job, arrival, uuid)
@@ -24,11 +25,13 @@ type QueueAlgorithm = Time -> [MachineState] -> [Operation] -> Queue
 type RestartPolicy
   = QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
 type CostFunction = [Job] -> [Assignment] -> Float
+type JMachineDemandIMap = IMap.IntMap Int
 
 data QueueAlgorithmVariant
   = ContextFree QueueAlgorithm
   | JOpsMapSensitive (JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
   | CfJomSensitive (CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
+  | MdmSensitive (JMachineDemandIMap -> Time -> [MachineState] -> [Operation] -> Queue)
 
 queueAlgorithm :: String -> Maybe QueueAlgorithmVariant
 queueAlgorithm name = case name of
@@ -60,6 +63,7 @@ queueAlgorithm name = case name of
   "sjmdrmm" -> Just (CfJomSensitive sjmdrmm)
   "sjlomsm" -> Just (CfJomSensitive sjlomsm)
   "sjsomsm" -> Just (CfJomSensitive sjsomsm)
+  "sjlosmsm" -> Just (MdmSensitive sjlosmsm)
   _ -> Nothing
   where adjust alg _ _ = alg
         adjust' alg a _ _ b = alg a b
@@ -69,6 +73,7 @@ contextFreeQueueAlgorithm name = case (queueAlgorithm name) of
   Just (ContextFree a) -> Just a
   Just (JOpsMapSensitive _) -> Nothing
   Just (CfJomSensitive _) -> Nothing
+  Just (MdmSensitive _) -> Nothing
   Nothing -> Nothing
 
 so :: [Operation] -> Queue
@@ -240,6 +245,25 @@ sjlomsm = sjxmsm lo
 
 sjsomsm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjsomsm = sjxmsm so
+
+sjxsmsm :: ([Operation] -> Queue) -> JMachineDemandIMap -> Time -> [MachineState] -> [Operation]
+        -> Queue
+sjxsmsm opAlg jMdMap _ mops ops = concatMap (opAlg . snd) $ merge mdQueue
+  where merge [] = undefined
+        merge [a] = [a]
+        merge ((md1,ops1):(md2,ops2):mdopss)
+          | md1 + md2 < machinesNum = merge $ (md1 + md2, ops1 ++ ops2) : mdopss
+          | otherwise = (md1,ops1) : (merge $ (md2,ops2) : mdopss)
+        machinesNum = length mops
+        mdQueue = map (\(j, ops') -> (fromMaybe undefined (IMap.lookup j jMdMap), ops'))
+                  $ map snd
+                  $ sortBy sj
+                  $ map (\(j, ops') -> (sum $ map duration ops', (j, ops'))) todoJOpss
+        sj l r = compare (fst l) (fst r)
+        todoJOpss = IMap.toList $ mapJs2Ops' ops
+
+sjlosmsm :: JMachineDemandIMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjlosmsm = sjxsmsm lo
 
 md :: [Operation] -> Queue
 md ops = (map snd

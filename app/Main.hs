@@ -7,6 +7,7 @@ import System.IO (hPutStrLn, stderr)
 import Data.List (sortBy)
 import Data.Maybe (fromMaybe)
 import qualified Data.Map.Strict as Map
+import qualified Data.IntMap.Strict as IMap
 
 import Options.Generic (ParseRecord, Generic, getRecord)
 
@@ -84,8 +85,12 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation outpu
         Just (QAlgorithms.ContextFree alg) -> alg
         Just (QAlgorithms.JOpsMapSensitive alg) -> alg jOpsMap
         Just (QAlgorithms.CfJomSensitive alg) -> alg completeCostFun jOpsMap
+        Just (QAlgorithms.MdmSensitive alg) -> alg jMdMap
         Nothing -> error "algorithm not found"
-        where jOpsMap = mapJs2Ops jobs operations
+        where jMdMap = IMap.fromList
+                       $ map (\(j, ops) -> (Job.uuid j, machineDemand (j, ops)))
+                       $ Map.toList jOpsMap
+              jOpsMap = mapJs2Ops jobs operations
 
   let runner = if restarts then QAlgorithms.restartful else QAlgorithms.restartless
   let validator js ops as = if noValidation then as else validateSolution js ops as
