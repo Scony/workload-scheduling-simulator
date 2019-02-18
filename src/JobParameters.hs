@@ -6,7 +6,7 @@ import Data.Maybe (fromMaybe)
 
 import Job (Job)
 import Operation (Operation, duration)
-import qualified QueueAlgorithms as QAlgorithms
+import QueueAlgorithms (run, restartless, contextFreeQueueAlgorithm)
 import Machine (ordinaryMachines)
 import Solution (totalFlow)
 
@@ -19,6 +19,6 @@ machineDemand (j, ops) = keepTFlowOnFewerMachines maxAllowedTFlow startingMachin
           | tflow == allowedTFlow = keepTFlowOnFewerMachines allowedTFlow (machinesNum - 1)
           | otherwise = machinesNum + 1
           where tflow = totalFlow [j]
-                        $ QAlgorithms.run QAlgorithms.restartless algorithm [j] ops machines
-                algorithm = fromMaybe (error "algorithm not found") (QAlgorithms.queueAlgorithm "sjlo")
+                        $ run restartless algorithm [j] ops machines
+                algorithm = fromMaybe (error "algorithm not found") (contextFreeQueueAlgorithm "sjlo")
                 machines = ordinaryMachines machinesNum

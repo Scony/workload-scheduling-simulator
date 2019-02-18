@@ -15,7 +15,7 @@ import Assignment
 import Job
 
 qAlgorithmByName :: String -> QueueAlgorithms.QueueAlgorithm
-qAlgorithmByName name = fromMaybe (error "algorithm not found") (QueueAlgorithms.queueAlgorithm name)
+qAlgorithmByName name = fromMaybe (error "algorithm not found") (contextFreeQueueAlgorithm name)
 
 so = qAlgorithmByName "so"
 

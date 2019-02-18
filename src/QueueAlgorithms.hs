@@ -1,7 +1,7 @@
 module QueueAlgorithms
-  ( assignInTimeFrame, run, queueAlgorithm, restartless, restartful
+  ( assignInTimeFrame, run, queueAlgorithm, restartless, restartful, contextFreeQueueAlgorithm
   , sjmd
-  , QueueAlgorithm
+  , QueueAlgorithm, QueueAlgorithmVariant (ContextFree, JOpsMapSensitive)
   ) where
 
 import Data.List (sortBy)
@@ -20,43 +20,53 @@ type Time = Int
 type MachineState = (Machine, Maybe (Operation, Time))
 type JOpsMap = Map.Map Job [Operation]
 type JOpssLeft = [(Job, [Operation])]
-type QueueAlgorithm = Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+type QueueAlgorithm = Time -> [MachineState] -> [Operation] -> Queue
 type RestartPolicy
   = QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation] -> ([MachineState], Queue)
 
-queueAlgorithm :: String -> Maybe QueueAlgorithm
+data QueueAlgorithmVariant
+  = ContextFree QueueAlgorithm
+  | JOpsMapSensitive (JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
+
+queueAlgorithm :: String -> Maybe QueueAlgorithmVariant
 queueAlgorithm name = case name of
-  "so" -> Just (adjust so)
-  "lo" -> Just (adjust lo)
-  "fifo" -> Just (adjust fifo)
-  "lifo" -> Just (adjust lifo)
-  "sjlo" -> Just (adjust sjlo)
-  "sjso" -> Just (adjust sjso)
-  "ljso" -> Just (adjust' ljso)
-  "ljlo" -> Just (adjust' ljlo)
-  "rrso" -> Just (adjust rrso)
-  "rrlo" -> Just (adjust rrlo)
-  "sjmd" -> Just (adjust sjmd)
-  "sjmdr" -> Just (adjust sjmdr)
-  "md" -> Just (adjust md)
-  "mdr" -> Just (adjust mdr)
-  "smjlo" -> Just (adjust smjlo)
-  "smjso" -> Just (adjust smjso)
-  "lmjlo" -> Just (adjust lmjlo)
-  "lmjso" -> Just (adjust lmjso)
-  "sjlo1m" -> Just sjlo1m
-  "sjso1m" -> Just sjso1m
-  "sjmd1m" -> Just sjmd1m
-  "sjmdr1m" -> Just sjmdr1m
-  "sjlomm" -> Just sjlomm
-  "sjsomm" -> Just sjsomm
-  "sjmdmm" -> Just sjmdmm
-  "sjmdrmm" -> Just sjmdrmm
-  "sjlomsm" -> Just sjlomsm
-  "sjsomsm" -> Just sjsomsm
+  "so" -> Just (ContextFree (adjust so))
+  "lo" -> Just (ContextFree (adjust lo))
+  "fifo" -> Just (ContextFree (adjust fifo))
+  "lifo" -> Just (ContextFree (adjust lifo))
+  "sjlo" -> Just (ContextFree (adjust sjlo))
+  "sjso" -> Just (ContextFree (adjust sjso))
+  "ljso" -> Just (JOpsMapSensitive (adjust' ljso))
+  "ljlo" -> Just (JOpsMapSensitive (adjust' ljlo))
+  "rrso" -> Just (ContextFree (adjust rrso))
+  "rrlo" -> Just (ContextFree (adjust rrlo))
+  "sjmd" -> Just (ContextFree (adjust sjmd))
+  "sjmdr" -> Just (ContextFree (adjust sjmdr))
+  "md" -> Just (ContextFree (adjust md))
+  "mdr" -> Just (ContextFree (adjust mdr))
+  "smjlo" -> Just (ContextFree (adjust smjlo))
+  "smjso" -> Just (ContextFree (adjust smjso))
+  "lmjlo" -> Just (ContextFree (adjust lmjlo))
+  "lmjso" -> Just (ContextFree (adjust lmjso))
+  "sjlo1m" -> Just (JOpsMapSensitive sjlo1m)
+  "sjso1m" -> Just (JOpsMapSensitive sjso1m)
+  "sjmd1m" -> Just (JOpsMapSensitive sjmd1m)
+  "sjmdr1m" -> Just (JOpsMapSensitive sjmdr1m)
+  "sjlomm" -> Just (JOpsMapSensitive sjlomm)
+  "sjsomm" -> Just (JOpsMapSensitive sjsomm)
+  "sjmdmm" -> Just (JOpsMapSensitive sjmdmm)
+  "sjmdrmm" -> Just (JOpsMapSensitive sjmdrmm)
+  "sjlomsm" -> Just (JOpsMapSensitive sjlomsm)
+  "sjsomsm" -> Just (JOpsMapSensitive sjsomsm)
   _ -> Nothing
-  where adjust alg _ _ _ = alg
-        adjust' alg _ _ = alg
+  where adjust alg _ _ = alg
+        adjust' alg a _ _ b = alg a b
+
+contextFreeQueueAlgorithm :: String -> Maybe QueueAlgorithm
+contextFreeQueueAlgorithm name = case (queueAlgorithm name) of
+  Just (ContextFree a) -> Just a
+  Just (JOpsMapSensitive _) -> Nothing
+  Nothing -> Nothing
 
 so :: [Operation] -> Queue
 so = sortBy (\l r -> compare (duration l) (duration r))
@@ -118,9 +128,9 @@ lmjso :: [Operation] -> Queue
 lmjso = reverse . smjlo
 
 -- TODO: pass cost function
-sjx1m :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
+sjx1m :: ([Operation] -> Queue) -> JOpsMap -> Time -> [MachineState] -> [Operation]
       -> Queue
-sjx1m opAlg t mops jOpsMap ops
+sjx1m opAlg jOpsMap t mops ops
   | queue1mCost < queue0mCost = queue1m
   | otherwise = queue0m
   where queue1mCost = totalFlow jobs
@@ -137,22 +147,22 @@ sjx1m opAlg t mops jOpsMap ops
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-sjlo1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjlo1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlo1m = sjx1m lo
 
-sjso1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjso1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjso1m = sjx1m so
 
-sjmd1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmd1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmd1m = sjx1m md
 
-sjmdr1m :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmdr1m :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmdr1m = sjx1m mdr
 
 -- TODO: pass cost function
-sjxmm :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
+sjxmm :: ([Operation] -> Queue) -> JOpsMap -> Time -> [MachineState] -> [Operation]
       -> Queue
-sjxmm opAlg t mops jOpsMap ops = concatMap opAlg $ mergeUntilWorse queue0mCost jQueue
+sjxmm opAlg jOpsMap t mops ops = concatMap opAlg $ mergeUntilWorse queue0mCost jQueue
   where jobs = map fst $ Map.toList jOpsMap
         mergeUntilWorse bestKnownCost (j1:j2:js)
           | newQueueCost <= bestKnownCost = mergeUntilWorse newQueueCost newJQueue
@@ -172,23 +182,23 @@ sjxmm opAlg t mops jOpsMap ops = concatMap opAlg $ mergeUntilWorse queue0mCost j
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-sjlomm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjlomm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlomm = sjxmm lo
 
-sjsomm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjsomm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjsomm = sjxmm so
 
-sjmdmm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmdmm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmdmm = sjxmm md
 
-sjmdrmm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjmdrmm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmdrmm = sjxmm mdr
 
 -- TODO: pass cost function
 -- TODO: redesign & speedup
-sjxmsm :: ([Operation] -> Queue) -> Time -> [MachineState] -> JOpsMap -> [Operation]
+sjxmsm :: ([Operation] -> Queue) -> JOpsMap -> Time -> [MachineState] -> [Operation]
        -> Queue
-sjxmsm opAlg t mops jOpsMap ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
+sjxmsm opAlg jOpsMap t mops ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
   where jobs = map fst $ Map.toList jOpsMap
         mergeUntilWorse _ _ [j] = [j]
         mergeUntilWorse cnt bestKnownCost js
@@ -225,10 +235,10 @@ sjxmsm opAlg t mops jOpsMap ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-sjlomsm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjlomsm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlomsm = sjxmsm lo
 
-sjsomsm :: Time -> [MachineState] -> JOpsMap -> [Operation] -> Queue
+sjsomsm :: JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjsomsm = sjxmsm so
 
 md :: [Operation] -> Queue
@@ -286,7 +296,7 @@ run' restartPolicy alg jOpsMap t jOpssLeft mops q =
 
 restartless :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
             -> ([MachineState], Queue)
-restartless algorithm jOpsMap t mops ops = (mops, algorithm t mops jOpsMap ops)
+restartless algorithm _ t mops ops = (mops, algorithm t mops ops)
 
 restartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
            -> ([MachineState], Queue)
@@ -306,12 +316,12 @@ restartful alg jOpsMap t mops ops
     jobs = map fst $ Map.toList jOpsMap
     outcomeWORestarts = (mops, qWORestarts)
     outcomeWRestarts = (mopsAfterResets, qWRestarts)
-    qWORestarts = alg t mops jOpsMap ops
+    qWORestarts = alg t mops ops
     (mopsAfterResets, qWRestarts) = dumbRestartful alg jOpsMap t mops ops
 
 dumbRestartful :: QueueAlgorithm -> JOpsMap -> Time -> [MachineState] -> [Operation]
                -> ([MachineState], Queue)
-dumbRestartful alg jOpsMap t mops ops = (mopsAfterResets, q)
+dumbRestartful alg _ t mops ops = (mopsAfterResets, q)
   where
     mopsAfterResets = map resetMachineIfNeeded mops
     resetMachineIfNeeded (m, opt) = case opt of
@@ -321,7 +331,7 @@ dumbRestartful alg jOpsMap t mops ops = (mopsAfterResets, q)
     opsToReset = [unFakeOp o | o <- q', Operation.uuid o < 0]
     q' = filter (`notElem` resetFreeOpsAfterStage2) opsStage2
     resetFreeOpsAfterStage2 = [o | o <- take mNumForStage2 opsStage2, Operation.uuid o < 0]
-    opsStage2 = alg t mopsForStage2 jOpsMap $ fakeOpsForStage2 ++ ops
+    opsStage2 = alg t mopsForStage2 $ fakeOpsForStage2 ++ ops
     fakeOpsForStage2 = filter (`notElem` resetFreeOpsAfterStage1)
                        [fakeOp o (duration o) | (_, Just (o, _)) <- mops]
     mNumForStage2 = mNum - length resetFreeOpsAfterStage1
@@ -331,7 +341,7 @@ dumbRestartful alg jOpsMap t mops ops = (mopsAfterResets, q)
       Nothing -> (m, opt)
     resetFreeOpsAfterStage1' = map unFakeOp resetFreeOpsAfterStage1
     resetFreeOpsAfterStage1 = [o | o <- take mNum opsStage1, Operation.uuid o < 0]
-    opsStage1 = alg t mopsForStage1 jOpsMap $ fakeOps ++ ops
+    opsStage1 = alg t mopsForStage1 $ fakeOps ++ ops
     mopsForStage1 = map (\(m, _) -> (m, Nothing)) mops
     fakeOps = [fakeOp o (finishTime-t) | (_, Just (o, finishTime)) <- mops]
     fakeOp (Operation p u k o _ c) fakeD = Operation p (-u-1) k o fakeD c -- TODO: get rid of (-) hack

@@ -65,7 +65,11 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation outpu
   hPutStrLn stderr $ "> validation: " ++ show (not noValidation)
   hPutStrLn stderr $ "> output: " ++ outputKind
 
-  let algorithm = qAlgorithmByName algorithmName
+  let algorithm = case QAlgorithms.queueAlgorithm algorithmName of
+        Just (QAlgorithms.ContextFree alg) -> alg
+        Just (QAlgorithms.JOpsMapSensitive alg) -> alg jOpsMap
+          where jOpsMap = mapJs2Ops jobs operations
+        Nothing -> error "algorithm not found"
   let costFun a b = case costFunction of
         "flow" -> fromIntegral $ Solution.flow a b
         "mstretch" -> Solution.mStretch a b
@@ -174,4 +178,6 @@ main' MDemand = do
   mapM_ (print . (\(j, ops) -> (length ops, machineDemand (j, ops)))) $ Map.toList jOpsMap
 
 qAlgorithmByName :: String -> QAlgorithms.QueueAlgorithm
-qAlgorithmByName name = fromMaybe (error "algorithm not found") (QAlgorithms.queueAlgorithm name)
+qAlgorithmByName name = fromMaybe
+                        (error "algorithm not found")
+                        (QAlgorithms.contextFreeQueueAlgorithm name)
