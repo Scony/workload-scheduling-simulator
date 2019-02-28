@@ -11,9 +11,16 @@ import Machine (ordinaryMachines)
 import Solution (totalFlow)
 
 machineDemand :: (Job, [Operation]) -> Int
-machineDemand (j, ops) = keepTFlowOnFewerMachines maxAllowedTFlow startingMachinesNum
-  where maxAllowedTFlow = maximum $ map duration ops
-        startingMachinesNum = length ops
+machineDemand (j, ops)
+  | aproxMDemand >= 0 && aproxMDemand < startingMachinesNum && fastMDemand <= aproxMDemand = fastMDemand
+  | otherwise = mDemand
+  where fastMDemand = keepTFlowOnFewerMachines maxAllowedTFlow aproxMDemand
+        aproxMDemand = idealMDemand + (startingMachinesNum `div` 100)
+        idealMDemand = ceiling (fromIntegral (sum opDurations) / fromIntegral maxAllowedTFlow :: Double)
+        mDemand = keepTFlowOnFewerMachines maxAllowedTFlow startingMachinesNum
+        maxAllowedTFlow = maximum opDurations
+        startingMachinesNum = length ops - 1
+        opDurations = map duration ops
         keepTFlowOnFewerMachines _ 0 = 1
         keepTFlowOnFewerMachines allowedTFlow machinesNum
           | tflow == allowedTFlow = keepTFlowOnFewerMachines allowedTFlow (machinesNum - 1)

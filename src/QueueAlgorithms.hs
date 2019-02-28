@@ -66,10 +66,10 @@ queueAlgorithm name = case name of
   "sjlosmsm" -> Just (MdmSensitive sjlosmsm)
   _ -> Nothing
   where adjust alg _ _ = alg
-        adjust' alg a _ _ b = alg a b
+        adjust' alg a _ _ = alg a
 
 contextFreeQueueAlgorithm :: String -> Maybe QueueAlgorithm
-contextFreeQueueAlgorithm name = case (queueAlgorithm name) of
+contextFreeQueueAlgorithm name = case queueAlgorithm name of
   Just (ContextFree a) -> Just a
   Just (JOpsMapSensitive _) -> Nothing
   Just (CfJomSensitive _) -> Nothing
@@ -200,7 +200,6 @@ sjmdmm = sjxmm md
 sjmdrmm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjmdrmm = sjxmm mdr
 
--- TODO: redesign & speedup
 sjxmsm :: ([Operation] -> Queue) -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
        -> Queue
 sjxmsm opAlg costFunction jOpsMap t mops ops = concat $ mergeUntilWorse 1 queue0mCost jQueue
@@ -252,11 +251,11 @@ sjxsmsm opAlg jMdMap _ mops ops = concatMap (opAlg . snd) $ merge mdQueue
   where merge [] = undefined
         merge [a] = [a]
         merge ((md1,ops1):(md2,ops2):mdopss)
-          | md1 + md2 < machinesNum = merge $ (md1 + md2, ops1 ++ ops2) : mdopss
-          | otherwise = (md1,ops1) : (merge $ (md2,ops2) : mdopss)
+          | md1 + md2 <= machinesNum - buffer = merge $ (md1 + md2, ops1 ++ ops2) : mdopss
+          | otherwise = (md1,ops1) : merge ((md2,ops2) : mdopss)
+        buffer = machinesNum `div` 2
         machinesNum = length mops
-        mdQueue = map (\(j, ops') -> (fromMaybe undefined (IMap.lookup j jMdMap), ops'))
-                  $ map snd
+        mdQueue = map ((\(j, ops') -> (fromMaybe undefined (IMap.lookup j jMdMap), ops')) . snd)
                   $ sortBy sj
                   $ map (\(j, ops') -> (sum $ map duration ops', (j, ops'))) todoJOpss
         sj l r = compare (fst l) (fst r)
