@@ -1,10 +1,11 @@
 module QueueAlgorithms
   ( assignInTimeFrame, run, queueAlgorithm, restartless, restartful, contextFreeQueueAlgorithm
   , sjmd
-  , QueueAlgorithm, QueueAlgorithmVariant (ContextFree, JOpsMapSensitive, CfJomSensitive, MdmSensitive)
+  , QueueAlgorithm, QueueAlgorithmVariant (ContextFree, JOpsMapSensitive, CfJomSensitive, MdmSensitive
+                                          , MdmCfJomSensitive)
   ) where
 
-import Data.List (sortBy)
+import Data.List (sortBy, minimumBy)
 import qualified Data.IntMap.Strict as IMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -32,6 +33,7 @@ data QueueAlgorithmVariant
   | JOpsMapSensitive (JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
   | CfJomSensitive (CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
   | MdmSensitive (JMachineDemandIMap -> Time -> [MachineState] -> [Operation] -> Queue)
+  | MdmCfJomSensitive (JMachineDemandIMap -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue)
 
 queueAlgorithm :: String -> Maybe QueueAlgorithmVariant
 queueAlgorithm name = case name of
@@ -63,18 +65,20 @@ queueAlgorithm name = case name of
   "sjmdrmm" -> Just (CfJomSensitive sjmdrmm)
   "sjlomsm" -> Just (CfJomSensitive sjlomsm)
   "sjsomsm" -> Just (CfJomSensitive sjsomsm)
-  "sjlosmsm" -> Just (MdmSensitive sjlosmsm)
+  "sjlosmsm" -> Just (MdmSensitive (adjust'' sjlosmsm))
+  "sjlobo" -> Just (MdmCfJomSensitive sjlobo)
+  "sjsobo" -> Just (MdmCfJomSensitive sjsobo)
+  "sjmdbo" -> Just (MdmCfJomSensitive sjmdbo)
+  "sjmdrbo" -> Just (MdmCfJomSensitive sjmdrbo)
   _ -> Nothing
   where adjust alg _ _ = alg
         adjust' alg a _ _ = alg a
+        adjust'' alg a _ = alg a
 
 contextFreeQueueAlgorithm :: String -> Maybe QueueAlgorithm
 contextFreeQueueAlgorithm name = case queueAlgorithm name of
   Just (ContextFree a) -> Just a
-  Just (JOpsMapSensitive _) -> Nothing
-  Just (CfJomSensitive _) -> Nothing
-  Just (MdmSensitive _) -> Nothing
-  Nothing -> Nothing
+  _ -> Nothing
 
 so :: [Operation] -> Queue
 so = sortBy (\l r -> compare (duration l) (duration r))
@@ -245,9 +249,9 @@ sjlomsm = sjxmsm lo
 sjsomsm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjsomsm = sjxmsm so
 
-sjxsmsm :: ([Operation] -> Queue) -> JMachineDemandIMap -> Time -> [MachineState] -> [Operation]
+sjxsmsm :: ([Operation] -> Queue) -> JMachineDemandIMap -> [MachineState] -> [Operation]
         -> Queue
-sjxsmsm opAlg jMdMap _ mops ops = concatMap (opAlg . snd) $ merge mdQueue
+sjxsmsm opAlg jMdMap mops ops = concatMap (opAlg . snd) $ merge mdQueue
   where merge [] = undefined
         merge [a] = [a]
         merge ((md1,ops1):(md2,ops2):mdopss)
@@ -261,8 +265,40 @@ sjxsmsm opAlg jMdMap _ mops ops = concatMap (opAlg . snd) $ merge mdQueue
         sj l r = compare (fst l) (fst r)
         todoJOpss = IMap.toList $ mapJs2Ops' ops
 
-sjlosmsm :: JMachineDemandIMap -> Time -> [MachineState] -> [Operation] -> Queue
+sjlosmsm :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
 sjlosmsm = sjxsmsm lo
+
+sjxbo :: ([Operation] -> Queue) -> JMachineDemandIMap -> CostFunction -> JOpsMap
+      -> Time -> [MachineState] -> [Operation]
+      -> Queue
+sjxbo opAlg jMdMap costFunction jOpsMap t mops ops = bestQ
+  where bestQ = snd
+                $ minimumBy (\l r -> compare (fst l) (fst r))
+                $ map (\q -> (eval q, q)) qs
+        eval q = costFunction jobs
+                 $ trd
+                 $ assignInTimeFrame mops q t maxBound
+        jobs = map fst $ Map.toList jOpsMap
+        qs = [qSjx1m, qSjxmm, qSjxsmsm]
+        qSjx1m = sjx1m opAlg costFunction jOpsMap t mops ops
+        qSjxmm = sjxmm opAlg costFunction jOpsMap t mops ops
+        qSjxsmsm = sjxsmsm opAlg jMdMap mops ops
+
+sjlobo :: JMachineDemandIMap -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
+       -> Queue
+sjlobo = sjxbo lo
+
+sjsobo :: JMachineDemandIMap -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
+       -> Queue
+sjsobo = sjxbo so
+
+sjmdbo :: JMachineDemandIMap -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
+       -> Queue
+sjmdbo = sjxbo md
+
+sjmdrbo :: JMachineDemandIMap -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
+       -> Queue
+sjmdrbo = sjxbo mdr
 
 md :: [Operation] -> Queue
 md ops = (map snd

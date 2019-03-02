@@ -86,6 +86,7 @@ main' (Online algorithmName machinesNum costFunction restarts noValidation outpu
         Just (QAlgorithms.JOpsMapSensitive alg) -> alg jOpsMap
         Just (QAlgorithms.CfJomSensitive alg) -> alg completeCostFun jOpsMap
         Just (QAlgorithms.MdmSensitive alg) -> alg jMdMap
+        Just (QAlgorithms.MdmCfJomSensitive alg) -> alg jMdMap completeCostFun jOpsMap
         Nothing -> error "algorithm not found"
         where jMdMap = IMap.fromList
                        $ map (\(j, ops) -> (Job.uuid j, machineDemand (j, ops)))
