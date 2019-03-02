@@ -143,17 +143,8 @@ lmjso = reverse . smjlo
 
 sjx1m :: ([Operation] -> Queue) -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
       -> Queue
-sjx1m opAlg costFunction jOpsMap t mops ops
-  | queue1mCost < queue0mCost = queue1m
-  | otherwise = queue0m
-  where queue1mCost = costFunction jobs
-                      $ trd
-                      $ assignInTimeFrame mops queue1m t maxBound
-        queue0mCost = costFunction jobs
-                      $ trd
-                      $ assignInTimeFrame mops queue0m t maxBound
-        jobs = map fst $ Map.toList jOpsMap
-        queue1m = concatMap opAlg $ concat (take 2 queue) : drop 2 queue
+sjx1m opAlg costFunction jOpsMap t mops ops = bestQueue costFunction jOpsMap t mops [queue1m, queue0m]
+  where queue1m = concatMap opAlg $ concat (take 2 queue) : drop 2 queue
         queue0m = concatMap opAlg queue
         queue = map snd $ sortBy sj dOps
         dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
