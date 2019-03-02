@@ -143,7 +143,7 @@ lmjso = reverse . smjlo
 
 sjx1m :: ([Operation] -> Queue) -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
       -> Queue
-sjx1m opAlg costFunction jOpsMap t mops ops = bestQueue costFunction jOpsMap t mops [queue1m, queue0m]
+sjx1m opAlg costFunction jOpsMap t mops ops = bestQueue costFunction jOpsMap t mops [queue0m, queue1m]
   where queue1m = concatMap opAlg $ concat (take 2 queue) : drop 2 queue
         queue0m = concatMap opAlg queue
         queue = map snd $ sortBy sj dOps
