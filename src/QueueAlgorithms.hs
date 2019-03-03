@@ -98,11 +98,13 @@ fifo ops = ops
 lifo :: [Operation] -> Queue
 lifo = reverse . fifo
 
+sj :: Ord a => (a, b1) -> (a, b2) -> Ordering
+sj l r = compare (fst l) (fst r)
+
 xjx :: ([Int] -> Int) -> ([Operation] -> Queue) -> [Operation] -> Queue
 xjx criterion opAlg ops = concatMap snd $ sortBy sj dOps
-  where dOps = map (\(_, ops') -> (criterion $ map duration ops', opAlg ops')) todoJOpss
-        sj l r = compare (fst l) (fst r)
-        todoJOpss = IMap.toList $ mapJs2Ops' ops
+  where dOps = map (\(_, ops') -> (criterion $ map duration ops', opAlg ops'))
+               $ IMap.toList $ mapJs2Ops' ops
 
 sjx :: ([Operation] -> Queue) -> [Operation] -> Queue
 sjx = xjx sum
@@ -115,14 +117,14 @@ sjso = sjx so
 
 ljx :: ([Operation] -> Queue) -> JOpsMap -> [Operation] -> Queue
 ljx opAlg jOpsMap ops = concatMap snd $ sortBy lj dOpss
-  where dOpss = map (\(j, ops') -> (jDuration j, opAlg ops')) todoJOpss
-        lj l r = compare (fst r) (fst l)
+  where lj l r = compare (fst r) (fst l)
         jDuration j = IMap.lookup j jDurationsIMap
         jDurationsIMap = IMap.fromList
                          $ map (\(j, ops') -> (Job.uuid j, sum $ map duration ops'))
                          $ Map.toList
                          jOpsMap
-        todoJOpss = IMap.toList $ mapJs2Ops' ops
+        dOpss = map (\(j, ops') -> (jDuration j, opAlg ops'))
+                $ IMap.toList $ mapJs2Ops' ops
 
 ljlo :: JOpsMap -> [Operation] -> Queue
 ljlo = ljx lo
@@ -151,9 +153,8 @@ sjx1m opAlg costFunction jOpsMap t mops ops = bestQueue costFunction jOpsMap t m
   where queue1m = concatMap opAlg $ concat (take 2 queue) : drop 2 queue
         queue0m = concatMap opAlg queue
         queue = map snd $ sortBy sj dOps
-        dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
-        sj l r = compare (fst l) (fst r)
-        todoJOpss = IMap.toList $ mapJs2Ops' ops
+        dOps = map (\(_, ops') -> (sum $ map duration ops', ops'))
+               $ IMap.toList $ mapJs2Ops' ops
 
 sjlo1m :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlo1m = sjx1m lo
@@ -185,9 +186,8 @@ sjxmm opAlg costFunction jOpsMap t mops ops = concatMap opAlg $ mergeUntilWorse 
                       $ assignInTimeFrame mops queue0m t maxBound
         queue0m = concatMap opAlg jQueue
         jQueue = map snd $ sortBy sj dOps
-        dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
-        sj l r = compare (fst l) (fst r)
-        todoJOpss = IMap.toList $ mapJs2Ops' ops
+        dOps = map (\(_, ops') -> (sum $ map duration ops', ops'))
+               $ IMap.toList $ mapJs2Ops' ops
 
 sjlomm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlomm = sjxmm lo
@@ -236,9 +236,8 @@ sjxmsm opAlg costFunction jOpsMap t mops ops = concat $ mergeUntilWorse 1 queue0
                       $ assignInTimeFrame mops queue0m t maxBound
         queue0m = concat jQueue
         jQueue = map (opAlg . snd) $ sortBy sj dOps
-        dOps = map (\(_, ops') -> (sum $ map duration ops', ops')) todoJOpss
-        sj l r = compare (fst l) (fst r)
-        todoJOpss = IMap.toList $ mapJs2Ops' ops
+        dOps = map (\(_, ops') -> (sum $ map duration ops', ops'))
+               $ IMap.toList $ mapJs2Ops' ops
 
 sjlomsm :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation] -> Queue
 sjlomsm = sjxmsm lo
@@ -258,9 +257,8 @@ sjxsmsm opAlg jMdMap mops ops = concatMap (opAlg . snd) $ merge mdQueue
         machinesNum = length mops
         mdQueue = map ((\(j, ops') -> (fromMaybe undefined (IMap.lookup j jMdMap), ops')) . snd)
                   $ sortBy sj
-                  $ map (\(j, ops') -> (sum $ map duration ops', (j, ops'))) todoJOpss
-        sj l r = compare (fst l) (fst r)
-        todoJOpss = IMap.toList $ mapJs2Ops' ops
+                  $ map (\(j, ops') -> (sum $ map duration ops', (j, ops')))
+                  $ IMap.toList $ mapJs2Ops' ops
 
 sjlosmsm :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
 sjlosmsm = sjxsmsm lo
@@ -271,7 +269,7 @@ sjxint opAlg jMdMap mops ops = concatMap interleave $ mergeBlocks initialBlocks
   where interleave [] = undefined
         interleave [(_, ops')] = ops'
         interleave mdOpss = concat $ concat $ transpose chunkedOpss
-          where chunkedOpss = map (\(dm, ops') -> chunksOf dm ops') mdOpss
+          where chunkedOpss = map (uncurry chunksOf) mdOpss
         mergeBlocks [] = undefined
         mergeBlocks [a] = [a]
         mergeBlocks (b1:b2:bs)
@@ -280,12 +278,11 @@ sjxint opAlg jMdMap mops ops = concatMap interleave $ mergeBlocks initialBlocks
           where b1d = sum $ map fst b1
                 b2d = sum $ map fst b2
         machinesNum = length mops
-        initialBlocks = map (\x -> [x]) mdQueue
+        initialBlocks = map (: []) mdQueue
         mdQueue = map ((\(j, ops') -> (fromMaybe undefined (IMap.lookup j jMdMap), ops')) . snd)
                   $ sortBy sj
-                  $ map (\(j, ops') -> (sum $ map duration ops', (j, opAlg ops'))) todoJOpss
-        sj l r = compare (fst l) (fst r)
-        todoJOpss = IMap.toList $ mapJs2Ops' ops
+                  $ map (\(j, ops') -> (sum $ map duration ops', (j, opAlg ops')))
+                  $ IMap.toList $ mapJs2Ops' ops
 
 sjloint :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
 sjloint = sjxint lo
