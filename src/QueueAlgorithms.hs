@@ -5,7 +5,8 @@ module QueueAlgorithms
                                           , MdmCfJomSensitive)
   ) where
 
-import Data.List (sortBy, minimumBy)
+import Data.List (sortBy, minimumBy, transpose)
+import Data.List.Split (chunksOf)
 import qualified Data.IntMap.Strict as IMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -72,6 +73,9 @@ queueAlgorithm name = case name of
   "sjmdrbo" -> Just (MdmCfJomSensitive sjmdrbo)
   "sjbo" -> Just (CfJomSensitive sjbo)
   "sjbobo" -> Just (MdmCfJomSensitive sjbobo)
+  "sjloint" -> Just (MdmSensitive (adjust'' sjloint))
+  "sjmdint" -> Just (MdmSensitive (adjust'' sjmdint))
+  "sjmdrint" -> Just (MdmSensitive (adjust'' sjmdrint))
   _ -> Nothing
   where adjust alg _ _ = alg
         adjust' alg a _ _ = alg a
@@ -260,6 +264,37 @@ sjxsmsm opAlg jMdMap mops ops = concatMap (opAlg . snd) $ merge mdQueue
 
 sjlosmsm :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
 sjlosmsm = sjxsmsm lo
+
+sjxint :: ([Operation] -> Queue) -> JMachineDemandIMap -> [MachineState] -> [Operation]
+       -> Queue
+sjxint opAlg jMdMap mops ops = concatMap interleave $ mergeBlocks initialBlocks
+  where interleave [] = undefined
+        interleave [(_, ops')] = ops'
+        interleave mdOpss = concat $ concat $ transpose chunkedOpss
+          where chunkedOpss = map (\(dm, ops') -> chunksOf dm ops') mdOpss
+        mergeBlocks [] = undefined
+        mergeBlocks [a] = [a]
+        mergeBlocks (b1:b2:bs)
+          | b1d + b2d <= machinesNum = mergeBlocks $ (b1 ++ b2) : bs
+          | otherwise = b1 : mergeBlocks (b2 : bs)
+          where b1d = sum $ map fst b1
+                b2d = sum $ map fst b2
+        machinesNum = length mops
+        initialBlocks = map (\x -> [x]) mdQueue
+        mdQueue = map ((\(j, ops') -> (fromMaybe undefined (IMap.lookup j jMdMap), ops')) . snd)
+                  $ sortBy sj
+                  $ map (\(j, ops') -> (sum $ map duration ops', (j, opAlg ops'))) todoJOpss
+        sj l r = compare (fst l) (fst r)
+        todoJOpss = IMap.toList $ mapJs2Ops' ops
+
+sjloint :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
+sjloint = sjxint lo
+
+sjmdint :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
+sjmdint = sjxint md
+
+sjmdrint :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
+sjmdrint = sjxint mdr
 
 bestQueue :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Queue] -> Queue
 bestQueue costFunction jOpsMap t mops qs = bestQ

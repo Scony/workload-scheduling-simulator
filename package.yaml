@@ -11,6 +11,7 @@ library:
     - -Werror
   dependencies:
     - extra
+    - split
 
 executables:
   simulator-exe:
