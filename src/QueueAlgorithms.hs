@@ -76,6 +76,8 @@ queueAlgorithm name = case name of
   "sjloint" -> Just (MdmSensitive (adjust'' sjloint))
   "sjmdint" -> Just (MdmSensitive (adjust'' sjmdint))
   "sjmdrint" -> Just (MdmSensitive (adjust'' sjmdrint))
+  "isjloint" -> Just (MdmCfJomSensitive isjloint)
+  "isjmdrint" -> Just (MdmCfJomSensitive isjmdrint)
   _ -> Nothing
   where adjust alg _ _ = alg
         adjust' alg a _ _ = alg a
@@ -292,6 +294,22 @@ sjmdint = sjxint md
 
 sjmdrint :: JMachineDemandIMap -> [MachineState] -> [Operation] -> Queue
 sjmdrint = sjxint mdr
+
+isjxint :: ([Operation] -> Queue) -> JMachineDemandIMap -> CostFunction -> JOpsMap
+        -> Time -> [MachineState] -> [Operation]
+        -> Queue
+isjxint opAlg jMdMap costFunction jOpsMap t mops ops = bestQueue costFunction jOpsMap t mops qs
+  where qs = [qSjx, qSjxint]
+        qSjx = sjx opAlg ops
+        qSjxint = sjxint opAlg  jMdMap mops ops
+
+isjloint :: JMachineDemandIMap -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
+         -> Queue
+isjloint = isjxint lo
+
+isjmdrint :: JMachineDemandIMap -> CostFunction -> JOpsMap -> Time -> [MachineState] -> [Operation]
+          -> Queue
+isjmdrint = isjxint mdr
 
 bestQueue :: CostFunction -> JOpsMap -> Time -> [MachineState] -> [Queue] -> Queue
 bestQueue costFunction jOpsMap t mops qs = bestQ
