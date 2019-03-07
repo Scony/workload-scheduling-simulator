@@ -38,6 +38,9 @@ executables:
     - -Wunused-imports
     - -Werror
     - -O2
+    dependencies:
+    - optparse-generic
+    - random
 
 tests:
   simulator-test:
