@@ -5,7 +5,7 @@ dependencies:
 - containers
 
 library:
-  source-dirs: src
+  source-dirs: lib
   ghc-options:
     - -Wall
     - -Werror
@@ -14,9 +14,9 @@ library:
     - split
 
 executables:
-  simulator-exe:
+  simulator:
     main:                Main.hs
-    source-dirs:         app
+    source-dirs:         simulator
     ghc-options:
     - -threaded
     - -rtsopts
@@ -24,10 +24,20 @@ executables:
     - -Wunused-imports
     - -Werror
     - -O2
-    # - -funbox-strict-fields
     dependencies:
     - simulator
     - optparse-generic
+
+  random-generator:
+    main:                Main.hs
+    source-dirs:         random-generator
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -Wunused-imports
+    - -Werror
+    - -O2
 
 tests:
   simulator-test:
