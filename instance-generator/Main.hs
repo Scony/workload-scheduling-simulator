@@ -9,7 +9,7 @@ import qualified System.Random
 import Options.Generic (ParseRecord, Generic, getRecord)
 
 data Arguments
-  = Simple { jobs :: Int
+  = Random { jobs :: Int
            , jopslb :: Int
            , jopsub :: Int
            , oplenlb :: Int
@@ -23,11 +23,11 @@ instance ParseRecord Arguments
 
 main :: IO ()
 main = do
-  parsedArgs <- getRecord "Random instance generator"
+  parsedArgs <- getRecord "Instance V2 generator"
   main' parsedArgs
 
 main' :: Arguments -> IO ()
-main' (Simple js jopsl jopsu opll oplu nal nau) = do
+main' (Random js jopsl jopsu opll oplu nal nau) = do
   g <- System.Random.getStdGen
 
   let rs = System.Random.randomRs (0, maxBound) g :: [Int]

@@ -28,9 +28,9 @@ executables:
     - simulator
     - optparse-generic
 
-  random-generator:
+  instance-generator:
     main:                Main.hs
-    source-dirs:         random-generator
+    source-dirs:         instance-generator
     ghc-options:
     - -threaded
     - -rtsopts
