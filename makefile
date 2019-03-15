@@ -8,7 +8,7 @@ profiling:
 	stack install --profile --trace --local-bin-path bin/
 
 hlint:
-	hlint app/ src/ -r
+	hlint simulator/ lib/ instance-generator/ -r
 
 clean:
 	rm -rf bin

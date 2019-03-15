@@ -37,7 +37,7 @@ main' (Random js jopsl jopsu opll oplu nal nau) = do
         where addToPrev acc el = acc ++ [last acc + el]
   let jOpLenss = unfoldr generate (jOpNums, rs'')
         where generate (jOpNums', rz)
-                | jOpNums' == [] = Nothing
+                | null jOpNums' = Nothing
                 | otherwise = Just (map (narrow (opll, oplu)) $ take (head jOpNums') rz
                                    , (tail jOpNums', drop (head jOpNums') rz))
   let ops = (zip [0..]
