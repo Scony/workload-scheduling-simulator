@@ -7,7 +7,6 @@ import pytest
 MAIN_WS_DIR = 'workspaces'
 
 
-
 def collect_instances(paths):
     instances = []
     for path in paths:
@@ -33,16 +32,22 @@ def workspace(request):
     yield concrete_workspace
 
 
-@pytest.mark.parametrize('instance_name, instance_path', collect_instances(['../instances/random/333']))
-def test_various_sjs(workspace, instance_name, instance_path):
+@pytest.mark.parametrize('machines', ['32', '64', '128', '256'])
+@pytest.mark.parametrize('algorithm', ['sjlo', 'sjmd', 'sjmdr', 'sjlo1m', 'sjmdr1m', 'isjmdrint', 'sjmdrint'])
+@pytest.mark.parametrize('instance_name, instance_path', collect_instances([
+    '../instances/random/333',
+    '../instances/random/1000',
+]))
+def test_various_sjs(workspace, instance_name, instance_path, machines, algorithm):
     opts = [
-        ('--algorithm', 'sjlo'),
-        ('--machines', '100'),
+        ('--algorithm', algorithm),
+        ('--machines', machines),
         ('--costfun', 'flow'),
         ('--output', 'jcosts'),
     ]
     metadata = [(k[2:], v) for k, v in opts]
     metadata += [
+        ('restarts', 'no'),
         ('jobs', instance_name.split('_')[0]),
         ('instance', instance_name),
     ]
